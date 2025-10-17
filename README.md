@@ -43,23 +43,42 @@ npm run dist
 
 ## GitHub Release 배포
 
-GitHub Actions를 통해 자동으로 릴리즈를 생성할 수 있습니다:
+로컬에서 빌드하고 GitHub Release를 생성합니다 (macOS runner 비용 절약):
 
-1. GitHub 저장소의 **Actions** 탭으로 이동
-2. **Release** workflow 선택
-3. **Run workflow** 클릭
-4. 릴리즈 버전 입력 (semantic versioning 형식: **x.y.z**)
-   - ✅ 올바른 형식: `1.0.1`, `0.1.0`, `2.3.4`
-   - ❌ 잘못된 형식: `0.1`, `1.0`, `v1.0.1`
-5. **Run workflow** 실행
+```bash
+./scripts/release.sh 1.0.1
+```
 
-workflow가 자동으로:
-- 버전 형식 검증
-- 버전 업데이트
-- 앱 빌드
-- GitHub Release 생성
-- DMG 및 ZIP 파일 업로드
-- 자동 업데이트를 위한 latest.yml 생성
+스크립트가 자동으로:
+- ✅ 버전 형식 검증 (semantic versioning: x.y.z)
+- ✅ package.json 버전 업데이트
+- ✅ 앱 빌드
+- ✅ 배포 패키지 생성 (DMG, ZIP)
+- ✅ GitHub Release 생성 및 파일 업로드
+- ✅ 버전 변경사항 커밋 및 푸시
+
+### 수동 릴리즈 (대안)
+
+직접 단계별로 실행하려면:
+
+```bash
+# 1. 버전 업데이트
+npm version 1.0.1 --no-git-tag-version
+
+# 2. 빌드 및 배포 패키지 생성
+npm run dist
+
+# 3. GitHub Release 생성
+gh release create v1.0.1 \
+  --title "Release v1.0.1" \
+  --notes "릴리즈 노트 내용" \
+  release/*.dmg release/*.zip release/*.blockmap
+
+# 4. 버전 커밋
+git add package.json package-lock.json
+git commit -m "chore: bump version to 1.0.1"
+git push
+```
 
 ## 사용 방법
 
