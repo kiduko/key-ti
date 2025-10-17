@@ -35,30 +35,80 @@ npm run build
 echo "📦 Creating distribution packages..."
 npm run dist
 
-# 4. GitHub Release 생성 (해당 버전 파일만)
+# 4. 변경사항 생성
+echo "📝 Generating changelog..."
+PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+if [ -z "$PREV_TAG" ]; then
+  echo "No previous tag found, using all commits"
+  COMMITS=$(git log --pretty=format:"- %s" --no-merges)
+else
+  echo "Previous tag: $PREV_TAG"
+  COMMITS=$(git log $PREV_TAG..HEAD --pretty=format:"- %s" --no-merges)
+fi
+
+# 변경사항을 카테고리별로 분류
+FEATURES=$(echo "$COMMITS" | grep -i "^- feat" || true)
+FIXES=$(echo "$COMMITS" | grep -i "^- fix" || true)
+REFACTORS=$(echo "$COMMITS" | grep -i "^- refactor" || true)
+DOCS=$(echo "$COMMITS" | grep -i "^- docs" || true)
+OTHERS=$(echo "$COMMITS" | grep -iv "^- \(feat\|fix\|refactor\|docs\)" || true)
+
+# 변경사항 생성
+CHANGELOG=""
+
+if [ -n "$FEATURES" ]; then
+  CHANGELOG="${CHANGELOG}#### ✨ 새로운 기능\n${FEATURES}\n\n"
+fi
+
+if [ -n "$FIXES" ]; then
+  CHANGELOG="${CHANGELOG}#### 🐛 버그 수정\n${FIXES}\n\n"
+fi
+
+if [ -n "$REFACTORS" ]; then
+  CHANGELOG="${CHANGELOG}#### ♻️ 리팩토링\n${REFACTORS}\n\n"
+fi
+
+if [ -n "$DOCS" ]; then
+  CHANGELOG="${CHANGELOG}#### 📝 문서\n${DOCS}\n\n"
+fi
+
+if [ -n "$OTHERS" ]; then
+  CHANGELOG="${CHANGELOG}#### 기타 변경사항\n${OTHERS}\n\n"
+fi
+
+# 변경사항이 없으면 기본 메시지
+if [ -z "$CHANGELOG" ]; then
+  CHANGELOG="- 내부 개선 및 버그 수정"
+fi
+
+# 5. GitHub Release 생성
 echo "🎉 Creating GitHub Release..."
-gh release create "v$VERSION" \
-  --title "Release v$VERSION" \
-  --notes "## Key-ti v$VERSION
+
+RELEASE_NOTES="## Key-ti v$VERSION
 
 ### 변경사항
-- [변경사항을 여기에 작성하세요]
+$(echo -e "$CHANGELOG")
 
 ### 설치 방법
-1. \`Key-ti-$VERSION-arm64-mac.zip\` 다운로드
-2. 압축 해제 후 \`Key-ti.app\`을 Applications 폴더로 이동
-3. 필요시 \`xattr -cr /Applications/Key-ti.app\` 실행
+1. \`Key-ti-$VERSION-distribution.zip\` 다운로드
+2. 압축 해제
+3. 터미널에서 \`./install.sh\` 실행
 
-### 자동 업데이트
+### 업데이트
 기존 사용자는 앱 실행 시 자동으로 업데이트 알림을 받습니다.
 
 ---
-🤖 Generated with Key-ti release script" \
-  "release/Key-ti-$VERSION-arm64-mac.zip" \
-  "release/Key-ti-$VERSION-arm64-mac.zip.blockmap" \
+
+**Full Changelog**: https://github.com/kiduko/key-ti/compare/$PREV_TAG...v$VERSION"
+
+gh release create "v$VERSION" \
+  --title "Release v$VERSION" \
+  --notes "$RELEASE_NOTES" \
+  "release/Key-ti-$VERSION-distribution.zip" \
   "release/latest-mac.yml"
 
-# 5. 버전 커밋
+# 6. 버전 커밋
 echo "💾 Committing version change..."
 git add package.json package-lock.json
 git commit -m "chore: bump version to $VERSION"
