@@ -1,123 +1,92 @@
 # Key-ti
 
-SAML 기반 AWS 세션 키 자동 갱신 프로그램
+> AWS SAML 세션 자동 관리 도구
 
-## 기능
+macOS용 Electron 앱으로 AWS SAML 인증 기반 임시 자격 증명을 자동으로 관리하고 갱신합니다.
 
-- **세션 관리**: AWS 프로필 관리 (alias, profile name, role ARN, SAML URL, IDP)
-- **SAML 인증**: 브라우저를 통한 자동 로그인
-- **자동 갱신**: AWS STS를 통한 임시 자격 증명 자동 발급
-- **Credentials 관리**: ~/.aws/credentials 파일 자동 업데이트
-- **메모장**: 여러 메모 파일 관리
-- **링크 관리**: 자주 사용하는 사이트 빠른 접근
-- **백업/복원**: 로컬 백업 (~/.key-ti)
+## 주요 기능
 
-## 배포판 설치
+### 🔐 세션 자동 갱신
+- 세션 만료 13분 전 자동 갱신
+- 백그라운드 Silent 모드 (포커스 안 뺏김)
+- 실패 시 자동 재시도 (10초 간격, 최대 3회)
 
-1. `Key-ti-{VERSION}-distribution.zip` 압축 해제 (예: Key-ti-1.0.0-distribution.zip)
-2. 터미널에서 다음 명령 실행:
+### 📊 세션 관리
+- AWS 프로필 관리 및 다중 세션 지원
+- 실시간 타이머 및 만료 알림
+- ~/.aws/credentials 자동 업데이트
+- AWS 콘솔 원클릭 접속
+
+### 🛠️ 추가 기능
+- 메모장 및 링크 관리
+- 자동 백업/복원 (~/.key-ti)
+- Dock/Tray 아이콘 활성 세션 표시
+
+## 설치
+
+[최신 릴리즈](https://github.com/kiduko/key-ti/releases/latest)에서 `Key-ti-x.x.x-distribution.zip` 다운로드 후:
 
 ```bash
-cd Key-ti-{VERSION}  # 예: cd Key-ti-1.0.0
+unzip Key-ti-x.x.x-distribution.zip
+cd Key-ti-x.x.x
 ./install.sh
 ```
 
-install.sh가 자동으로:
-- ZIP 파일을 찾아서 압축 해제
-- Key-ti.app을 Applications 폴더로 복사
-- 보안 속성 제거 (xattr)
+## 사용 방법
 
-## 개발자용 설치
+### 프로필 추가
+1. **세션 관리** 탭에서 **프로필 추가**
+2. 프로필 정보 입력:
+   - **Alias**: 프로필 별칭 (예: production)
+   - **Profile Name**: AWS credentials 파일명
+   - **Role ARN**: AssumeRole 역할 ARN
+   - **SAML URL**: IDP SAML 인증 URL
+   - **IDP**: SAML Provider ARN
 
+### 세션 활성화
+1. 프로필에서 **로그인** 클릭
+2. 브라우저에서 IDP 인증
+3. 자동으로 자격 증명 발급 및 저장
+4. 만료 13분 전 자동 갱신
+
+### AWS 콘솔 접속
+활성 세션에서 **콘솔** 버튼 클릭
+
+## 개발
+
+### 환경 설정
 ```bash
 npm install
 npm run dev
 ```
 
-## 빌드 및 배포
-
+### 세션 시간 조절 (테스트용)
 ```bash
-# 개발 빌드
-npm run build
+export KEY_TI_SESSION_DURATION=300  # 5분
 npm start
-
-# 배포판 생성 (로컬)
-npm run dist
 ```
 
-## GitHub Release 배포
-
-### 로컬 릴리즈 (권장)
-
-로컬에서 빌드하고 GitHub Release를 생성합니다 (macOS runner 비용 절약):
-
+### 빌드
 ```bash
-./scripts/release.sh
+npm run build        # TypeScript 컴파일
+npm run dist         # 배포 패키지 생성
 ```
 
-스크립트가 자동으로:
-- ✅ 현재 버전에서 0.0.1 자동 증가
-- ✅ 확인 후 진행 (y/n)
-- ✅ package.json 버전 업데이트
-- ✅ 앱 빌드
-- ✅ 배포 패키지 생성 (ZIP)
-- ✅ GitHub Release 생성 및 파일 업로드
-- ✅ 버전 변경사항 커밋 및 푸시
-
-### GitHub Actions 릴리즈
-
-GitHub 웹 UI에서 릴리즈 (버전 자동 증가):
-
-1. GitHub 저장소 → **Actions** 탭
-2. **Release** workflow 선택
-3. **Run workflow** 클릭
-4. 버전 자동 증가 (현재 버전 + 0.0.1)
-
-**참고:** macOS runner 비용이 비싸므로 로컬 릴리즈 권장
-
-## 사용 방법
-
-### 1. 세션 관리 탭
-
-- **프로필 추가**: AWS 프로필 정보 입력
-  - Alias: 프로필 별칭 (예: production)
-  - Profile Name: AWS credentials 파일에 저장될 프로필 이름
-  - Role ARN: AssumeRole할 역할의 ARN
-  - SAML URL: IDP의 SAML 인증 URL
-  - IDP: SAML Provider의 ARN (Principal ARN)
-
-- **로그인**: 프로필에서 "로그인" 버튼 클릭
-  - 브라우저에서 IDP 로그인
-  - 자동으로 AWS 자격 증명 발급 및 저장
-
-- **AWS 콘솔 열기**: 활성 세션에서 "콘솔" 버튼으로 브라우저에서 AWS 콘솔 접속
-
-### 2. 메모장 탭
-
-- 여러 메모 파일 생성 및 관리
-- 왼쪽 목록에서 메모 선택
-- "저장" 버튼으로 내용 저장
-
-### 3. 링크 탭
-
-- 자주 사용하는 웹사이트 URL 저장
-- 클릭으로 브라우저에서 바로 열기
-
-### 4. 설정 탭
-
-- **백업**: `~/.key-ti` 폴더에 모든 데이터 백업
-- **복원**: 백업 목록에서 선택하여 복원
-- **자동 백업**: 앱 종료 시 자동 백업 (선택사항)
+### 문서
+- [agents.md](agents.md) - 개발자 가이드 및 AI 에이전트 워크플로우
+- [GitHub Issues](https://github.com/kiduko/key-ti/issues) - 이슈 및 기능 요청
 
 ## 기술 스택
 
-- TypeScript
-- Electron
-- AWS SDK for JavaScript v3
-- HTML/CSS
+- **TypeScript** - 타입 안전성
+- **Electron** - 크로스 플랫폼 데스크톱 앱
+- **AWS SDK v3** - AWS STS 인증
+- **electron-updater** - 자동 업데이트 (수동 업데이트 방식으로 변경됨)
 
-## 주의사항
+## 라이선스
 
-- macOS 전용으로 개발됨
-- SAML 인증이 설정된 AWS 계정이 필요
-- 세션은 최대 12시간 동안 유효
+MIT
+
+## 기여
+
+이슈 및 PR 환영합니다! 기여 전 [agents.md](agents.md)를 참고해주세요.
