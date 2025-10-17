@@ -1,0 +1,119 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import { app } from 'electron';
+import { ConfigData, AWSProfile } from './types';
+
+export class ConfigManager {
+  private config: ConfigData;
+  private configFile: string;
+
+  constructor() {
+    this.configFile = path.join(app.getPath('userData'), 'config.json');
+    this.config = this.loadConfig();
+  }
+
+  private loadConfig(): ConfigData {
+    try {
+      if (fs.existsSync(this.configFile)) {
+        const data = fs.readFileSync(this.configFile, 'utf-8');
+        // 빈 파일이나 손상된 JSON 처리
+        if (data.trim().length === 0) {
+          console.log('Config file is empty, creating new config');
+          return { profiles: [] };
+        }
+        return JSON.parse(data);
+      }
+    } catch (error) {
+      console.error('Failed to load config:', error);
+      // 손상된 파일 백업 후 삭제
+      if (fs.existsSync(this.configFile)) {
+        const backupFile = this.configFile + '.backup';
+        fs.copyFileSync(this.configFile, backupFile);
+        fs.unlinkSync(this.configFile);
+        console.log('Corrupted config backed up to:', backupFile);
+      }
+    }
+    return { profiles: [] };
+  }
+
+  private saveConfig(): void {
+    try {
+      const dir = path.dirname(this.configFile);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(this.configFile, JSON.stringify(this.config, null, 2));
+    } catch (error) {
+      console.error('Failed to save config:', error);
+    }
+  }
+
+  getProfiles(): AWSProfile[] {
+    return this.config.profiles;
+  }
+
+  addProfile(profile: AWSProfile): void {
+    console.log('ConfigManager: Adding profile', profile);
+    console.log('ConfigManager: Current profiles before add', this.config.profiles);
+    this.config.profiles.push(profile);
+    console.log('ConfigManager: Current profiles after add', this.config.profiles);
+    this.saveConfig();
+    console.log('ConfigManager: Config saved to', this.configFile);
+  }
+
+  updateProfile(alias: string, profile: AWSProfile): void {
+    const index = this.config.profiles.findIndex(p => p.alias === alias);
+    if (index !== -1) {
+      this.config.profiles[index] = profile;
+      this.saveConfig();
+    }
+  }
+
+  deleteProfile(alias: string): void {
+    this.config.profiles = this.config.profiles.filter(p => p.alias !== alias);
+    this.saveConfig();
+  }
+
+  setActiveProfile(alias: string): void {
+    if (!this.config.activeProfiles) {
+      this.config.activeProfiles = [];
+    }
+    if (!this.config.activeProfiles.includes(alias)) {
+      this.config.activeProfiles.push(alias);
+    }
+
+    // 프로필의 isActive 플래그 설정
+    const profile = this.config.profiles.find(p => p.alias === alias);
+    if (profile) {
+      profile.isActive = true;
+    }
+
+    this.saveConfig();
+  }
+
+  removeActiveProfile(alias: string): void {
+    if (this.config.activeProfiles) {
+      this.config.activeProfiles = this.config.activeProfiles.filter(a => a !== alias);
+    }
+
+    // 프로필의 isActive 플래그 해제
+    const profile = this.config.profiles.find(p => p.alias === alias);
+    if (profile) {
+      profile.isActive = false;
+      profile.lastRefresh = undefined;
+      profile.expiration = undefined;
+    }
+
+    this.saveConfig();
+  }
+
+  getActiveProfiles(): string[] {
+    return this.config.activeProfiles || [];
+  }
+
+  // 호환성을 위한 레거시 메서드
+  getActiveProfile(): string | undefined {
+    const actives = this.getActiveProfiles();
+    return actives.length > 0 ? actives[0] : undefined;
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm run build:*)",
+      "Bash(npm start)",
+      "Bash(./node_modules/.bin/electron:*)",
+      "Bash(npm ls:*)",
+      "Bash(node:*)",
+      "Bash(cat:*)",
+      "Bash(node_modules/electron/dist/Electron.app/Contents/MacOS/Electron:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)",
+      "Bash(npx electron:*)",
+      "Bash(xattr:*)",
+      "Bash(unzip:*)",
+      "Bash(grep:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

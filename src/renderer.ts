@@ -1,0 +1,977 @@
+interface AWSProfile {
+  alias: string;
+  profileName: string;
+  roleArn: string;
+  samlUrl: string;
+  idp: string;
+  lastRefresh?: string;
+  expiration?: string;
+  isActive?: boolean;
+}
+
+declare global {
+  interface Window {
+    electronAPI: {
+      getProfiles: () => Promise<AWSProfile[]>;
+      addProfile: (profile: AWSProfile) => Promise<void>;
+      updateProfile: (alias: string, profile: AWSProfile) => Promise<void>;
+      deleteProfile: (alias: string) => Promise<void>;
+      activateProfile: (alias: string) => Promise<{ success: boolean; message: string }>;
+      deactivateProfile: (alias: string) => Promise<{ success: boolean; message: string }>;
+      getActiveProfile: () => Promise<string | undefined>;
+      validateSessions: () => Promise<{ success: boolean }>;
+      openConsole: (alias: string) => Promise<{ success: boolean; message: string }>;
+      openUrl: (url: string) => Promise<void>;
+      getBackupPath: () => Promise<string>;
+      testBackupPath: () => Promise<{ success: boolean; message?: string }>;
+      saveBackup: (data: any) => Promise<{ success: boolean; filename?: string; message?: string }>;
+      listBackups: () => Promise<{ success: boolean; backups: any[] }>;
+      loadBackup: (filename: string) => Promise<{ success: boolean; data?: any; message?: string }>;
+      getAutoBackupSettings: () => Promise<{ enabled: boolean; type: string }>;
+    };
+  }
+}
+
+let profiles: AWSProfile[] = [];
+let activeProfile: string | undefined;
+let timerInterval: any = null;
+let editingAlias: string | null = null;
+
+async function loadProfiles() {
+  console.log('Renderer: Loading profiles...');
+
+  // 세션 검증 먼저 수행
+  await window.electronAPI.validateSessions();
+
+  profiles = await window.electronAPI.getProfiles();
+  activeProfile = await window.electronAPI.getActiveProfile();
+  console.log('Renderer: Loaded profiles:', profiles);
+  console.log('Renderer: Active profile:', activeProfile);
+  renderProfiles();
+}
+
+function renderProfiles() {
+  const profilesList = document.getElementById('profilesList')!;
+
+  if (profiles.length === 0) {
+    profilesList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <p>등록된 프로필이 없습니다</p>
+      </div>
+    `;
+    return;
+  }
+
+  profilesList.innerHTML = profiles
+    .map(
+      profile => {
+        const isActive = profile.isActive || false;
+        const expiration = profile.expiration ? new Date(profile.expiration) : null;
+        const now = new Date();
+        const isExpired = expiration && expiration < now;
+        const timeRemainingSeconds = expiration ? Math.floor((expiration.getTime() - now.getTime()) / 1000) : null;
+
+        let expirationText = '';
+        let timeClass = 'time-normal';
+
+        if (expiration) {
+          if (isExpired) {
+            expirationText = '<span class="time-expired">만료됨</span>';
+            timeClass = 'time-expired';
+          } else if (timeRemainingSeconds !== null) {
+            const hours = Math.floor(timeRemainingSeconds / 3600);
+            const minutes = Math.floor((timeRemainingSeconds % 3600) / 60);
+            const seconds = timeRemainingSeconds % 60;
+
+            if (timeRemainingSeconds < 300) { // 5분 미만
+              timeClass = 'time-critical';
+            } else if (timeRemainingSeconds < 3600) { // 1시간 미만
+              timeClass = 'time-warning';
+            }
+
+            expirationText = `<span class="${timeClass}" data-expiration="${profile.expiration}" onclick="activateProfile('${profile.alias}')" style="cursor: pointer; text-decoration: underline;">
+              ${hours}시간 ${minutes}분 ${seconds}초
+            </span>`;
+          }
+        }
+
+        return `
+    <div class="profile-item ${isActive ? 'profile-active' : ''}" style="${isActive ? 'background: #e8f4f8; border-left: 4px solid #5a6c7d;' : ''}">
+      <div class="profile-info">
+        <div class="profile-alias">
+          ${profile.alias} ${isActive ? '<span style="color: #5a6c7d;">●</span>' : ''}
+          <button class="btn-delete" onclick="deleteProfile('${profile.alias}')" title="삭제">🗑️</button>
+        </div>
+        <div class="profile-details">
+          <strong>Profile:</strong> ${profile.profileName} | <strong>Role:</strong> ${profile.roleArn.split('/').pop()}
+          ${expirationText ? '<br>남은 시간: ' + expirationText : ''}
+        </div>
+      </div>
+      <div class="profile-actions">
+        ${isActive ? `
+          <button class="btn-secondary" onclick="openConsole('${profile.alias}')">🌐 콘솔</button>
+          <button class="btn-secondary" onclick="editProfile('${profile.alias}')">✏️ 편집</button>
+          <button class="btn-danger" onclick="deactivateProfile('${profile.alias}')">
+            로그아웃
+          </button>
+        ` : `
+          <button class="btn-success" onclick="activateProfile('${profile.alias}')">
+            로그인
+          </button>
+          <button class="btn-secondary" onclick="editProfile('${profile.alias}')">✏️ 편집</button>
+        `}
+      </div>
+    </div>
+  `;
+      }
+    )
+    .join('');
+
+  // 실시간 타이머 시작
+  startTimer();
+}
+
+function openAddProfileModal() {
+  editingAlias = null;
+  const modal = document.getElementById('profileModal')!;
+  const modalHeader = modal.querySelector('.modal-header')!;
+  modalHeader.textContent = '프로필 추가';
+
+  const form = document.getElementById('profileForm') as HTMLFormElement;
+  form.reset();
+
+  // alias 필드 활성화
+  (document.getElementById('alias') as HTMLInputElement).disabled = false;
+
+  modal.classList.add('active');
+}
+
+function closeProfileModal() {
+  const modal = document.getElementById('profileModal')!;
+  modal.classList.remove('active');
+  editingAlias = null;
+}
+
+async function editProfile(alias: string) {
+  const profile = profiles.find(p => p.alias === alias);
+  if (!profile) return;
+
+  // 활성 세션이 있으면 먼저 로그아웃 확인
+  if (profile.isActive) {
+    const shouldLogout = confirm(
+      `"${alias}" 프로필을 편집하려면 먼저 로그아웃해야 합니다.\n로그아웃하고 편집하시겠습니까?`
+    );
+
+    if (!shouldLogout) return;
+
+    // 자동 로그아웃
+    showStatus('세션 로그아웃 중...', 'info');
+    const result = await window.electronAPI.deactivateProfile(alias);
+
+    if (!result.success) {
+      showStatus('로그아웃 실패: ' + result.message, 'error');
+      return;
+    }
+
+    await loadProfiles();
+  }
+
+  // 편집 모드로 모달 열기
+  editingAlias = alias;
+  const modal = document.getElementById('profileModal')!;
+  const modalHeader = modal.querySelector('.modal-header')!;
+  modalHeader.textContent = '프로필 편집';
+
+  const form = document.getElementById('profileForm') as HTMLFormElement;
+
+  // 기존 데이터 채우기
+  (document.getElementById('alias') as HTMLInputElement).value = profile.alias;
+  (document.getElementById('alias') as HTMLInputElement).disabled = true; // alias는 수정 불가
+  (document.getElementById('profileName') as HTMLInputElement).value = profile.profileName;
+  (document.getElementById('roleArn') as HTMLInputElement).value = profile.roleArn;
+  (document.getElementById('samlUrl') as HTMLInputElement).value = profile.samlUrl;
+  (document.getElementById('idp') as HTMLInputElement).value = profile.idp;
+
+  modal.classList.add('active');
+}
+
+async function deleteProfile(alias: string) {
+  if (!confirm(`"${alias}" 프로필을 삭제하시겠습니까?`)) {
+    return;
+  }
+
+  await window.electronAPI.deleteProfile(alias);
+  await loadProfiles();
+  showStatus('프로필이 삭제되었습니다', 'success');
+}
+
+async function activateProfile(alias: string) {
+  showStatus('세션 활성화 중...', 'info');
+
+  const result = await window.electronAPI.activateProfile(alias);
+
+  if (result.success) {
+    await loadProfiles();
+    showStatus(result.message, 'success');
+  } else {
+    showStatus(result.message, 'error');
+  }
+}
+
+async function deactivateProfile(alias: string) {
+  if (!confirm(`"${alias}" 세션을 로그아웃하시겠습니까?`)) {
+    return;
+  }
+
+  showStatus('로그아웃 중...', 'info');
+
+  const result = await window.electronAPI.deactivateProfile(alias);
+
+  if (result.success) {
+    await loadProfiles();
+    showStatus(result.message, 'success');
+  } else {
+    showStatus(result.message, 'error');
+  }
+}
+
+function startTimer() {
+  // 기존 타이머 제거
+  if (timerInterval) {
+    clearInterval(timerInterval);
+  }
+
+  // 1초마다 남은 시간 업데이트
+  timerInterval = setInterval(() => {
+    const timeElements = document.querySelectorAll('[data-expiration]');
+
+    timeElements.forEach((element) => {
+      const expirationStr = element.getAttribute('data-expiration');
+      if (!expirationStr) return;
+
+      const expiration = new Date(expirationStr);
+      const now = new Date();
+      const timeRemainingSeconds = Math.floor((expiration.getTime() - now.getTime()) / 1000);
+
+      if (timeRemainingSeconds <= 0) {
+        element.textContent = '만료됨';
+        element.className = 'time-expired';
+      } else {
+        const hours = Math.floor(timeRemainingSeconds / 3600);
+        const minutes = Math.floor((timeRemainingSeconds % 3600) / 60);
+        const seconds = timeRemainingSeconds % 60;
+
+        element.textContent = `${hours}시간 ${minutes}분 ${seconds}초`;
+
+        if (timeRemainingSeconds < 300) {
+          element.className = 'time-critical';
+        } else if (timeRemainingSeconds < 3600) {
+          element.className = 'time-warning';
+        } else {
+          element.className = 'time-normal';
+        }
+      }
+    });
+  }, 1000);
+}
+
+async function openConsole(alias: string) {
+  showStatus('AWS 콘솔 열기 중...', 'info');
+
+  const result = await window.electronAPI.openConsole(alias);
+
+  if (result.success) {
+    showStatus(result.message, 'success');
+  } else {
+    showStatus(result.message, 'error');
+  }
+}
+
+// Expose functions to global scope for onclick handlers
+(window as any).openAddProfileModal = openAddProfileModal;
+(window as any).closeProfileModal = closeProfileModal;
+(window as any).editProfile = editProfile;
+(window as any).deleteProfile = deleteProfile;
+(window as any).activateProfile = activateProfile;
+(window as any).deactivateProfile = deactivateProfile;
+(window as any).openConsole = openConsole;
+
+function showStatus(message: string, type: 'success' | 'error' | 'info') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  // 아이콘 선택
+  const icons = {
+    success: '✓',
+    error: '✕',
+    info: 'ℹ'
+  };
+
+  // Toast 생성
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[type]}</div>
+    <div class="toast-message">${message}</div>
+    <button class="toast-close" aria-label="닫기">×</button>
+  `;
+
+  container.appendChild(toast);
+
+  // 닫기 버튼 클릭 이벤트
+  const closeButton = toast.querySelector('.toast-close');
+  const removeToast = () => {
+    toast.classList.add('hiding');
+    setTimeout(() => {
+      if (toast.parentNode === container) {
+        container.removeChild(toast);
+      }
+    }, 300); // 애니메이션 시간
+  };
+
+  if (closeButton) {
+    closeButton.addEventListener('click', removeToast);
+  }
+
+  // 10초 후 자동 제거 (3초 -> 10초로 변경)
+  setTimeout(removeToast, 10000);
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM loaded, initializing...');
+
+  // Form submission
+  const profileForm = document.getElementById('profileForm');
+  if (profileForm) {
+    profileForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      console.log('Form submitted');
+
+      const profile: AWSProfile = {
+        alias: (document.getElementById('alias') as HTMLInputElement).value,
+        profileName: (document.getElementById('profileName') as HTMLInputElement).value,
+        roleArn: (document.getElementById('roleArn') as HTMLInputElement).value,
+        samlUrl: (document.getElementById('samlUrl') as HTMLInputElement).value,
+        idp: (document.getElementById('idp') as HTMLInputElement).value
+      };
+
+      if (editingAlias) {
+        // 편집 모드
+        console.log('Updating profile:', profile);
+        await window.electronAPI.updateProfile(editingAlias, profile);
+        await loadProfiles();
+        closeProfileModal();
+        showStatus('프로필이 수정되었습니다', 'success');
+      } else {
+        // 추가 모드
+        console.log('Adding profile:', profile);
+        await window.electronAPI.addProfile(profile);
+        await loadProfiles();
+        closeProfileModal();
+        showStatus('프로필이 추가되었습니다', 'success');
+      }
+    });
+  } else {
+    console.error('Profile form not found!');
+  }
+
+  // Close modal on background click
+  const profileModal = document.getElementById('profileModal');
+  if (profileModal) {
+    profileModal.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        closeProfileModal();
+      }
+    });
+  }
+
+  // Load profiles on page load
+  loadProfiles();
+  loadMemo();
+  loadLinks();
+
+  // 새 메모 폼 제출
+  const newMemoForm = document.getElementById('newMemoForm');
+  if (newMemoForm) {
+    newMemoForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const nameInput = document.getElementById('newMemoName') as HTMLInputElement;
+      const name = nameInput.value.trim();
+      if (!name) return;
+
+      const newMemo: MemoFile = {
+        id: Date.now().toString(),
+        name: name,
+        content: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      memos.push(newMemo);
+      localStorage.setItem('memos', JSON.stringify(memos));
+      renderMemoFiles();
+      openMemoFile(newMemo.id);
+      (window as any).closeNewMemoModal();
+      showStatus('새 메모가 생성되었습니다', 'success');
+    });
+  }
+
+  // 새 메모 모달 배경 클릭 시 닫기
+  const newMemoModal = document.getElementById('newMemoModal');
+  if (newMemoModal) {
+    newMemoModal.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        (window as any).closeNewMemoModal();
+      }
+    });
+  }
+
+  // 백업 복원 모달 배경 클릭 시 닫기
+  const restoreModal = document.getElementById('restoreBackupModal');
+  if (restoreModal) {
+    restoreModal.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        (window as any).closeRestoreModal();
+      }
+    });
+  }
+});
+
+// ========== 탭 전환 ==========
+(window as any).switchTab = function(tabName: string) {
+  // 모든 탭과 탭 콘텐츠 비활성화
+  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+  // 선택된 탭 활성화
+  const tabs = document.querySelectorAll('.tab');
+  if (tabName === 'sessions') {
+    tabs[0].classList.add('active');
+    document.getElementById('sessionsTab')?.classList.add('active');
+  } else if (tabName === 'memo') {
+    tabs[1].classList.add('active');
+    document.getElementById('memoTab')?.classList.add('active');
+  } else if (tabName === 'links') {
+    tabs[2].classList.add('active');
+    document.getElementById('linksTab')?.classList.add('active');
+  } else if (tabName === 'settings') {
+    tabs[3].classList.add('active');
+    document.getElementById('settingsTab')?.classList.add('active');
+    loadBackupSettings();
+  }
+};
+
+// ========== 메모장 기능 (멀티 파일) ==========
+interface MemoFile {
+  id: string;
+  name: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+let memos: MemoFile[] = [];
+let currentMemoId: string | null = null;
+
+function loadMemo() {
+  const saved = localStorage.getItem('memos');
+  if (saved) {
+    memos = JSON.parse(saved);
+  } else {
+    // 기존 단일 메모 마이그레이션
+    const oldMemo = localStorage.getItem('memo');
+    if (oldMemo) {
+      memos = [{
+        id: Date.now().toString(),
+        name: '기본 메모',
+        content: oldMemo,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }];
+      localStorage.setItem('memos', JSON.stringify(memos));
+      localStorage.removeItem('memo');
+    }
+  }
+  renderMemoFiles();
+}
+
+function renderMemoFiles() {
+  const filesList = document.getElementById('memoFilesList');
+  if (!filesList) return;
+
+  filesList.innerHTML = '';
+
+  memos.forEach(memo => {
+    const item = document.createElement('div');
+    item.className = 'memo-file-item';
+    if (memo.id === currentMemoId) {
+      item.classList.add('active');
+    }
+    item.textContent = memo.name;
+    item.onclick = () => openMemoFile(memo.id);
+    filesList.appendChild(item);
+  });
+}
+
+function openMemoFile(id: string) {
+  const memo = memos.find(m => m.id === id);
+  if (!memo) return;
+
+  currentMemoId = id;
+
+  const editor = document.getElementById('memoEditor');
+  const placeholder = document.getElementById('memoPlaceholder');
+  const nameInput = document.getElementById('memoFileName') as HTMLInputElement;
+  const textarea = document.getElementById('memoTextarea') as HTMLTextAreaElement;
+
+  if (editor && placeholder && nameInput && textarea) {
+    editor.style.display = 'block';
+    placeholder.style.display = 'none';
+    nameInput.value = memo.name;
+    textarea.value = memo.content;
+  }
+
+  renderMemoFiles();
+}
+
+(window as any).openNewMemoModal = function() {
+  const modal = document.getElementById('newMemoModal');
+  const input = document.getElementById('newMemoName') as HTMLInputElement;
+  if (modal && input) {
+    modal.classList.add('active');
+    input.value = `메모 ${memos.length + 1}`;
+    input.select();
+  }
+};
+
+(window as any).closeNewMemoModal = function() {
+  const modal = document.getElementById('newMemoModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+};
+
+(window as any).saveMemo = function() {
+  if (!currentMemoId) return;
+
+  const memo = memos.find(m => m.id === currentMemoId);
+  if (!memo) return;
+
+  const nameInput = document.getElementById('memoFileName') as HTMLInputElement;
+  const textarea = document.getElementById('memoTextarea') as HTMLTextAreaElement;
+
+  if (nameInput && textarea) {
+    memo.name = nameInput.value;
+    memo.content = textarea.value;
+    memo.updatedAt = new Date().toISOString();
+
+    localStorage.setItem('memos', JSON.stringify(memos));
+    renderMemoFiles();
+    showStatus('메모가 저장되었습니다', 'success');
+  }
+};
+
+(window as any).deleteMemo = function() {
+  if (!currentMemoId) return;
+
+  if (!confirm('이 메모를 삭제하시겠습니까?')) return;
+
+  memos = memos.filter(m => m.id !== currentMemoId);
+  localStorage.setItem('memos', JSON.stringify(memos));
+
+  currentMemoId = null;
+  const editor = document.getElementById('memoEditor');
+  const placeholder = document.getElementById('memoPlaceholder');
+  if (editor && placeholder) {
+    editor.style.display = 'none';
+    placeholder.style.display = 'block';
+  }
+
+  renderMemoFiles();
+  showStatus('메모가 삭제되었습니다', 'success');
+};
+
+// ========== 링크 기능 ==========
+interface Link {
+  name: string;
+  url: string;
+}
+
+let links: Link[] = [];
+
+function loadLinks() {
+  const saved = localStorage.getItem('links');
+  if (saved) {
+    links = JSON.parse(saved);
+  }
+  renderLinks();
+}
+
+function renderLinks() {
+  const linksList = document.getElementById('linksList');
+  if (!linksList) return;
+
+  linksList.innerHTML = '';
+
+  links.forEach((link, index) => {
+    const linkItem = document.createElement('div');
+    linkItem.className = 'link-item';
+    linkItem.innerHTML = `
+      <div class="link-name">${link.name}</div>
+      <div class="link-url">${link.url}</div>
+      <button class="btn-delete link-delete" onclick="deleteLink(${index})">삭제</button>
+    `;
+    linkItem.onclick = (e) => {
+      if ((e.target as HTMLElement).classList.contains('btn-delete')) return;
+      // URL 열기
+      window.electronAPI.openUrl(link.url);
+    };
+    linksList.appendChild(linkItem);
+  });
+
+  // 링크 추가 버튼
+  const addBtn = document.createElement('div');
+  addBtn.className = 'add-link-btn';
+  addBtn.textContent = '+ 링크 추가';
+  addBtn.onclick = () => (window as any).openAddLinkModal();
+  linksList.appendChild(addBtn);
+}
+
+(window as any).openAddLinkModal = function() {
+  const modal = document.getElementById('linkModal');
+  if (modal) {
+    modal.classList.add('active');
+    const form = document.getElementById('linkForm') as HTMLFormElement;
+    if (form) {
+      form.reset();
+    }
+  }
+};
+
+(window as any).closeLinkModal = function() {
+  const modal = document.getElementById('linkModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+};
+
+(window as any).deleteLink = function(index: number) {
+  if (confirm('이 링크를 삭제하시겠습니까?')) {
+    links.splice(index, 1);
+    localStorage.setItem('links', JSON.stringify(links));
+    renderLinks();
+    showStatus('링크가 삭제되었습니다', 'success');
+  }
+};
+
+// 링크 폼 제출
+document.addEventListener('DOMContentLoaded', () => {
+  const linkForm = document.getElementById('linkForm');
+  if (linkForm) {
+    linkForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const nameInput = document.getElementById('linkName') as HTMLInputElement;
+      const urlInput = document.getElementById('linkUrl') as HTMLInputElement;
+
+      const link: Link = {
+        name: nameInput.value,
+        url: urlInput.value
+      };
+
+      links.push(link);
+      localStorage.setItem('links', JSON.stringify(links));
+      renderLinks();
+      (window as any).closeLinkModal();
+      showStatus('링크가 추가되었습니다', 'success');
+    });
+  }
+
+  // Close link modal on background click
+  const linkModal = document.getElementById('linkModal');
+  if (linkModal) {
+    linkModal.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        (window as any).closeLinkModal();
+      }
+    });
+  }
+
+  // 백업 타입 변경 이벤트
+  const backupTypeSelect = document.getElementById('backupType');
+  if (backupTypeSelect) {
+    backupTypeSelect.addEventListener('change', (e) => {
+      const type = (e.target as HTMLSelectElement).value;
+      document.getElementById('localBackupSettings')!.style.display = type === 'local' ? 'block' : 'none';
+    });
+  }
+});
+
+// ========== 백업 설정 기능 ==========
+interface BackupSettings {
+  type: 'none' | 'local';
+  localPath: string;
+  autoBackup: boolean;
+}
+
+async function loadBackupSettings() {
+  // 백업 경로 가져오기
+  const backupPath = await window.electronAPI.getBackupPath();
+
+  const saved = localStorage.getItem('backupSettings');
+  const settings: BackupSettings = saved ? JSON.parse(saved) : {
+    type: 'none',
+    localPath: backupPath,
+    autoBackup: false
+  };
+
+  // 경로가 없으면 새로 가져온 경로로 설정
+  if (!settings.localPath) {
+    settings.localPath = backupPath;
+  }
+
+  const backupType = document.getElementById('backupType') as HTMLSelectElement;
+  const autoBackup = document.getElementById('autoBackup') as HTMLInputElement;
+  const localPath = document.getElementById('localPath') as HTMLInputElement;
+
+  if (backupType) {
+    backupType.value = settings.type;
+    // 타입에 맞는 설정 영역 표시
+    document.getElementById('localBackupSettings')!.style.display = settings.type === 'local' ? 'block' : 'none';
+  }
+
+  if (autoBackup) {
+    autoBackup.checked = settings.autoBackup;
+  }
+
+  if (localPath) {
+    localPath.value = settings.localPath;
+  }
+}
+
+(window as any).saveBackupSettings = async function() {
+  const backupType = (document.getElementById('backupType') as HTMLSelectElement).value;
+  const autoBackup = (document.getElementById('autoBackup') as HTMLInputElement).checked;
+  const localPath = (document.getElementById('localPath') as HTMLInputElement).value;
+
+  const settings: BackupSettings = {
+    type: backupType as any,
+    localPath: localPath,
+    autoBackup: autoBackup
+  };
+
+  localStorage.setItem('backupSettings', JSON.stringify(settings));
+
+  // ~/.key-ti/backup-settings.json에도 저장 (자동 백업을 위해)
+  if (backupType === 'local') {
+    const backupPath = await window.electronAPI.getBackupPath();
+    await window.electronAPI.saveBackup({
+      _settingsOnly: true,
+      settings: settings
+    });
+  }
+
+  showStatus('백업 설정이 저장되었습니다', 'success');
+};
+
+(window as any).backupNow = async function() {
+  const saved = localStorage.getItem('backupSettings');
+  const settings: BackupSettings = saved ? JSON.parse(saved) : { type: 'none', localPath: '', autoBackup: false };
+
+  if (settings.type === 'none') {
+    showStatus('백업 위치를 먼저 선택하고 설정을 저장하세요', 'error');
+    return;
+  }
+
+  showStatus('백업 중...', 'info');
+
+  // 백업할 데이터 수집
+  const profilesData = await window.electronAPI.getProfiles();
+  const memosData = localStorage.getItem('memos');
+  const linksData = localStorage.getItem('links');
+  const settingsData = localStorage.getItem('backupSettings');
+
+  const backupData = {
+    profiles: profilesData,
+    memos: memosData ? JSON.parse(memosData) : [],
+    links: linksData ? JSON.parse(linksData) : [],
+    backupSettings: settingsData ? JSON.parse(settingsData) : null,
+    timestamp: new Date().toISOString()
+  };
+
+  const result = await window.electronAPI.saveBackup(backupData);
+
+  if (result.success) {
+    showStatus(`백업 완료: ${result.filename}`, 'success');
+  } else {
+    showStatus('백업 실패: ' + result.message, 'error');
+  }
+};
+
+(window as any).restoreBackup = async function() {
+  const modal = document.getElementById('restoreBackupModal');
+  const container = document.getElementById('backupListContainer');
+
+  if (!modal || !container) return;
+
+  modal.classList.add('active');
+  container.innerHTML = '<p>로딩 중...</p>';
+
+  const result = await window.electronAPI.listBackups();
+
+  if (!result.success || result.backups.length === 0) {
+    container.innerHTML = '<p style="color: #999;">저장된 백업이 없습니다</p>';
+    return;
+  }
+
+  const backupPath = await window.electronAPI.getBackupPath();
+  const totalBackups = result.backups.length;
+  const displayBackups = result.backups.slice(0, 5); // 최신 5개만
+  const remainingCount = totalBackups - 5;
+
+  // 백업 파일 목록 표시 (최신 5개)
+  let html = displayBackups.map((backup: any) => {
+    const date = new Date(backup.timestamp);
+    const dateStr = date.toLocaleString('ko-KR');
+    const sizeKB = (backup.size / 1024).toFixed(1);
+
+    return `
+      <div class="profile-item" style="cursor: pointer; margin-bottom: 12px;" onclick="selectBackupToRestore('${backup.filename}')">
+        <div class="profile-info">
+          <div class="profile-alias">${backup.filename}</div>
+          <div class="profile-details">
+            날짜: ${dateStr} | 크기: ${sizeKB} KB
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 추가 백업이 있으면 안내 메시지 표시
+  if (remainingCount > 0) {
+    html += `
+      <div style="padding: 12px; background: #f5f5f5; border-radius: 6px; margin-top: 12px;">
+        <p style="margin: 0; font-size: 13px; color: #666;">
+          ℹ️ ${remainingCount}개의 백업이 더 있습니다
+        </p>
+        <p style="margin: 4px 0 0 0; font-size: 12px; color: #999;">
+          ${backupPath}
+        </p>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+};
+
+(window as any).closeRestoreModal = function() {
+  const modal = document.getElementById('restoreBackupModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+};
+
+(window as any).selectBackupToRestore = async function(filename: string) {
+  // 활성 세션 확인
+  const currentProfiles = await window.electronAPI.getProfiles();
+  const activeProfiles = currentProfiles.filter(p => p.isActive);
+
+  let confirmMessage = '백업을 복원하면 현재 데이터가 모두 대체됩니다.';
+
+  if (activeProfiles.length > 0) {
+    const activeNames = activeProfiles.map(p => p.alias).join(', ');
+    confirmMessage += `\n\n현재 로그인된 세션 (${activeProfiles.length}개)이 있습니다:\n${activeNames}\n\n모든 세션을 로그아웃하고 복원을 진행합니다.`;
+  }
+
+  confirmMessage += '\n\n계속하시겠습니까?';
+
+  if (!confirm(confirmMessage)) {
+    return;
+  }
+
+  (window as any).closeRestoreModal();
+
+  // 활성 세션이 있으면 먼저 로그아웃
+  if (activeProfiles.length > 0) {
+    showStatus(`${activeProfiles.length}개 세션 로그아웃 중...`, 'info');
+
+    for (const profile of activeProfiles) {
+      try {
+        await window.electronAPI.deactivateProfile(profile.alias);
+      } catch (err) {
+        console.error('Logout error during restore:', err);
+      }
+    }
+  }
+
+  showStatus('백업 복원 중...', 'info');
+
+  const loadResult = await window.electronAPI.loadBackup(filename);
+
+  if (!loadResult.success) {
+    showStatus('백업 로드 실패: ' + loadResult.message, 'error');
+    return;
+  }
+
+  await restoreFromBackupData(loadResult.data);
+};
+
+async function restoreFromBackupData(backupData: any) {
+  // 1. 기존 프로필 모두 삭제
+  const existingProfiles = await window.electronAPI.getProfiles();
+
+  for (const profile of existingProfiles) {
+    try {
+      await window.electronAPI.deleteProfile(profile.alias);
+    } catch (err) {
+      console.error('Delete profile error during restore:', err);
+    }
+  }
+
+  // 2. 백업된 프로필 복원
+  if (backupData.profiles && Array.isArray(backupData.profiles)) {
+    for (const profile of backupData.profiles) {
+      try {
+        // isActive 제거하고 추가 (세션은 복원하지 않음)
+        const cleanProfile = { ...profile };
+        delete cleanProfile.isActive;
+        delete cleanProfile.lastRefresh;
+        delete cleanProfile.expiration;
+        await window.electronAPI.addProfile(cleanProfile);
+      } catch (err) {
+        console.error('Profile restore error:', err);
+      }
+    }
+  }
+
+  // 3. 메모 복원
+  if (backupData.memos) {
+    localStorage.setItem('memos', JSON.stringify(backupData.memos));
+    memos = backupData.memos;
+    renderMemoFiles();
+  }
+
+  // 4. 링크 복원
+  if (backupData.links) {
+    localStorage.setItem('links', JSON.stringify(backupData.links));
+    links = backupData.links;
+    renderLinks();
+  }
+
+  // 5. 백업 설정 복원
+  if (backupData.backupSettings) {
+    localStorage.setItem('backupSettings', JSON.stringify(backupData.backupSettings));
+    await loadBackupSettings();
+  }
+
+  // 6. 프로필 리로드
+  await loadProfiles();
+
+  showStatus(`백업이 복원되었습니다 (${backupData.timestamp || '시간 정보 없음'})`, 'success');
+}
+
+// Make this file a module to allow global declarations
+export {};

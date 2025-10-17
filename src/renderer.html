@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Key-ti</title>
+  <script>
+    console.log('HTML loaded!');
+    console.log('window.electronAPI:', window.electronAPI);
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f5f5f7;
+      padding: 0;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .container {
+      width: 100%;
+      height: 100vh;
+      margin: 0;
+      background: white;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #2c3e50;
+      color: white;
+      padding: 12px 16px;
+      border-bottom: 3px solid #34495e;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .logo {
+      width: 32px;
+      height: 32px;
+    }
+
+    .header-text {
+      flex: 1;
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      opacity: 0.9;
+      font-size: 12px;
+    }
+
+    .content {
+      padding: 12px 16px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .section {
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #333;
+    }
+
+    .profiles-list {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .profile-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border-bottom: 1px solid #e0e0e0;
+      transition: background 0.2s;
+    }
+
+    .profile-item:last-child {
+      border-bottom: none;
+    }
+
+    .profile-item:hover {
+      background: #f9f9f9;
+    }
+
+    .profile-item.active {
+      background: #e8f4fd;
+      border-left: 4px solid #667eea;
+    }
+
+    .profile-info {
+      flex: 1;
+    }
+
+    .profile-alias {
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .profile-details {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .profile-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .btn-primary {
+      background: #5a6c7d;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #4a5c6d;
+    }
+
+    .btn-success {
+      background: #27ae60;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #229954;
+    }
+
+    .btn-danger {
+      background: #95a5a6;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #7f8c8d;
+    }
+
+    .btn-secondary {
+      background: #ecf0f1;
+      color: #2c3e50;
+    }
+
+    .btn-secondary:hover {
+      background: #d5dbdb;
+    }
+
+    .btn-delete {
+      background: transparent;
+      border: none;
+      font-size: 16px;
+      cursor: pointer;
+      opacity: 0.3;
+      padding: 2px 6px;
+      margin-left: 8px;
+      border-radius: 4px;
+      transition: all 0.2s;
+      vertical-align: middle;
+    }
+
+    .btn-delete:hover {
+      opacity: 0.8;
+      background: #f5f5f5;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      color: #333;
+      font-size: 14px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #d0d0d0;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border 0.2s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 24px;
+    }
+
+    .status {
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-top: 16px;
+    }
+
+    .status.success {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+
+    .status.error {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+
+    .status.info {
+      background: #bee3f8;
+      color: #2c5282;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: #999;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .time-normal {
+      color: #27ae60;
+      font-weight: 600;
+    }
+
+    .time-warning {
+      color: #e67e22;
+      font-weight: 600;
+    }
+
+    .time-critical {
+      color: #c0392b;
+      font-weight: 600;
+      animation: blink 1s infinite;
+    }
+
+    .time-expired {
+      color: #95a5a6;
+      font-weight: 600;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.5; }
+    }
+
+    .profile-active {
+      box-shadow: 0 4px 12px rgba(24, 144, 255, 0.15);
+    }
+
+    /* 탭 스타일 */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #e0e0e0;
+      background: white;
+      padding: 0 24px;
+    }
+
+    .tab {
+      padding: 16px 24px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      font-size: 15px;
+      font-weight: 500;
+      color: #666;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      color: #333;
+      background: #f9f9f9;
+    }
+
+    .tab.active {
+      color: #2c3e50;
+      border-bottom-color: #2c3e50;
+    }
+
+    .tab-content {
+      display: none;
+      padding: 12px 16px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Toast 알림 스타일 */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 350px;
+    }
+
+    .toast {
+      background: white;
+      padding: 14px 18px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: slideIn 0.3s ease-out;
+      border-left: 4px solid;
+      position: relative;
+    }
+
+    .toast.success {
+      border-left-color: #27ae60;
+    }
+
+    .toast.error {
+      border-left-color: #e74c3c;
+    }
+
+    .toast.info {
+      border-left-color: #3498db;
+    }
+
+    .toast-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .toast-message {
+      flex: 1;
+      font-size: 14px;
+      color: #333;
+      white-space: pre-line;
+    }
+
+    .toast-close {
+      background: none;
+      border: none;
+      color: #999;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: color 0.2s;
+    }
+
+    .toast-close:hover {
+      color: #333;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+    }
+
+    .toast.hiding {
+      animation: slideOut 0.3s ease-out forwards;
+    }
+
+    /* 메모장 스타일 */
+    .memo-file-item {
+      padding: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      background: white;
+      border: 1px solid #e0e0e0;
+    }
+
+    .memo-file-item:hover {
+      background: #f5f5f5;
+      border-color: #2c3e50;
+    }
+
+    .memo-file-item.active {
+      background: #2c3e50;
+      color: white;
+      border-color: #2c3e50;
+    }
+
+    #memoTextarea {
+      width: 100%;
+      height: calc(100vh - 300px);
+      padding: 12px;
+      border: 1px solid #d0d0d0;
+      border-radius: 8px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      resize: none;
+    }
+
+    /* 링크 스타일 */
+    .links-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .link-item {
+      padding: 16px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .link-item:hover {
+      background: #f5f5f5;
+      border-color: #2c3e50;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .link-item .link-name {
+      font-weight: 600;
+      color: #2c3e50;
+      margin-bottom: 4px;
+    }
+
+    .link-item .link-url {
+      font-size: 12px;
+      color: #999;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .link-item .link-delete {
+      margin-top: 8px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .link-item:hover .link-delete {
+      opacity: 1;
+    }
+
+    .add-link-btn {
+      grid-column: 1 / -1;
+      padding: 32px;
+      border: 2px dashed #d0d0d0;
+      border-radius: 8px;
+      background: #f9f9f9;
+      cursor: pointer;
+      color: #999;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+
+    .add-link-btn:hover {
+      border-color: #2c3e50;
+      color: #2c3e50;
+      background: white;
+    }
+  </style>
+</head>
+<body>
+  <!-- Toast 알림 컨테이너 -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <div class="container">
+    <header>
+      <img src="./key-logo.png" alt="Logo" class="logo">
+      <div class="header-text">
+        <h1>Key-ti</h1>
+        <p class="subtitle">SAML 기반 AWS 세션 자동 갱신</p>
+      </div>
+    </header>
+
+    <!-- 탭 메뉴 -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('sessions')">세션 관리</button>
+      <button class="tab" onclick="switchTab('memo')">메모장</button>
+      <button class="tab" onclick="switchTab('links')">링크</button>
+      <button class="tab" onclick="switchTab('settings')">설정</button>
+    </div>
+
+    <!-- 세션 관리 탭 -->
+    <div id="sessionsTab" class="tab-content active">
+      <div class="section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h2 class="section-title">프로필 목록</h2>
+          <button class="btn-primary" onclick="openAddProfileModal()">+ 프로필 추가</button>
+        </div>
+
+        <div id="profilesList" class="profiles-list">
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <p>등록된 프로필이 없습니다</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="statusMessage"></div>
+    </div>
+
+    <!-- 메모장 탭 -->
+    <div id="memoTab" class="tab-content">
+      <div class="section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h2 class="section-title">메모장</h2>
+          <button class="btn-primary" onclick="openNewMemoModal()">+ 새 메모</button>
+        </div>
+
+        <div style="display: flex; gap: 16px;">
+          <!-- 메모 파일 목록 -->
+          <div style="width: 200px; border-right: 1px solid #e0e0e0; padding-right: 16px;">
+            <div id="memoFilesList" style="display: flex; flex-direction: column; gap: 8px;">
+            </div>
+          </div>
+
+          <!-- 메모 에디터 -->
+          <div style="flex: 1;">
+            <div id="memoEditor" style="display: none;">
+              <input type="text" id="memoFileName" placeholder="메모 제목" style="margin-bottom: 12px; font-size: 16px; font-weight: 600;">
+              <textarea id="memoTextarea" placeholder="메모를 입력하세요..."></textarea>
+              <div style="margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end;">
+                <button class="btn-secondary" onclick="deleteMemo()">삭제</button>
+                <button class="btn-primary" onclick="saveMemo()">저장</button>
+              </div>
+            </div>
+            <div id="memoPlaceholder" style="text-align: center; padding: 64px; color: #999;">
+              메모를 선택하거나 새로 만드세요
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 링크 탭 -->
+    <div id="linksTab" class="tab-content">
+      <div class="section">
+        <h2 class="section-title">자주 사용하는 링크</h2>
+        <div id="linksList" class="links-list">
+          <div class="add-link-btn" onclick="openAddLinkModal()">+ 링크 추가</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 설정 탭 -->
+    <div id="settingsTab" class="tab-content">
+      <div class="section">
+        <h2 class="section-title">백업 설정</h2>
+
+        <div class="form-group">
+          <label>백업 위치</label>
+          <select id="backupType">
+            <option value="none">백업 안 함</option>
+            <option value="local">로컬 폴더 (~/.key-ti)</option>
+          </select>
+        </div>
+
+        <div id="localBackupSettings" style="display: none;">
+          <div class="form-group">
+            <label>백업 폴더 경로</label>
+            <input type="text" id="localPath" placeholder="~/.key-ti" readonly style="background: #f5f5f5; color: #666;">
+            <small style="color: #666; font-size: 12px;">• 프로필, 메모, 링크 데이터가 저장됩니다</small>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 20px;">
+          <label style="display: inline-flex; align-items: center; gap: 12px; cursor: pointer;">
+            <div>
+              <div style="font-weight: 500; margin-bottom: 4px;">종료 시 자동으로 백업</div>
+              <small style="color: #666; font-size: 12px;">
+                백업 위치가 '로컬 폴더'로 설정되어 있어야 동작합니다
+              </small>
+            </div>
+            <input type="checkbox" id="autoBackup" style="cursor: pointer; width: 18px; height: 18px; flex-shrink: 0;">
+          </label>
+        </div>
+
+        <div style="margin-top: 24px; display: flex; gap: 8px;">
+          <button class="btn-primary" onclick="saveBackupSettings()">설정 저장</button>
+          <button class="btn-success" onclick="backupNow()">지금 백업</button>
+          <button class="btn-secondary" onclick="restoreBackup()">백업 복원</button>
+        </div>
+
+        <div id="backupStatus" style="margin-top: 16px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Profile Modal -->
+  <div id="profileModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">프로필 추가</div>
+
+      <form id="profileForm">
+        <div class="form-group">
+          <label>Alias</label>
+          <input type="text" id="alias" required placeholder="예: production">
+        </div>
+
+        <div class="form-group">
+          <label>Profile Name</label>
+          <input type="text" id="profileName" required placeholder="예: prod-account">
+        </div>
+
+        <div class="form-group">
+          <label>Role ARN</label>
+          <input type="text" id="roleArn" required placeholder="arn:aws:iam::123456789012:role/YourRole">
+        </div>
+
+        <div class="form-group">
+          <label>SAML URL</label>
+          <input type="text" id="samlUrl" required placeholder="https://your-idp.com/saml">
+        </div>
+
+        <div class="form-group">
+          <label>IDP (Principal ARN)</label>
+          <input type="text" id="idp" required placeholder="arn:aws:iam::123456789012:saml-provider/YourIDP">
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeProfileModal()">취소</button>
+          <button type="submit" class="btn-primary">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Link Modal -->
+  <div id="linkModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">링크 추가</div>
+
+      <form id="linkForm">
+        <div class="form-group">
+          <label>링크 이름</label>
+          <input type="text" id="linkName" required placeholder="예: AWS Console">
+        </div>
+
+        <div class="form-group">
+          <label>URL</label>
+          <input type="url" id="linkUrl" required placeholder="https://example.com">
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeLinkModal()">취소</button>
+          <button type="submit" class="btn-primary">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- New Memo Modal -->
+  <div id="newMemoModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">새 메모</div>
+
+      <form id="newMemoForm">
+        <div class="form-group">
+          <label>메모 이름</label>
+          <input type="text" id="newMemoName" required placeholder="메모 제목">
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeNewMemoModal()">취소</button>
+          <button type="submit" class="btn-primary">생성</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Restore Backup Modal -->
+  <div id="restoreBackupModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">백업 복원</div>
+
+      <div id="backupListContainer" style="margin: 20px 0;">
+        <p>로딩 중...</p>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeRestoreModal()">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./renderer.js"></script>
+</body>
+</html>

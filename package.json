@@ -1,0 +1,65 @@
+{
+  "name": "key-ti",
+  "version": "1.0.0",
+  "description": "Key-ti - AWS Session Key Auto Renewal Tool",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "tsc && cp src/renderer.html dist/ && cp build/key-logo.png dist/ && sed -i '' '2d' dist/renderer.js",
+    "dev": "npm run build && electron .",
+    "watch": "tsc -w",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder && npm run post-dist",
+    "post-dist": "cd release && rm -rf 'Key-ti.app' Key-ti-1.0.0 Key-ti-1.0.0-distribution.zip && unzip -q 'Key-ti-1.0.0-arm64-mac.zip' && mkdir -p Key-ti-1.0.0 && mv 'Key-ti.app' Key-ti-1.0.0/ && cp ../install.sh Key-ti-1.0.0/ 2>/dev/null || true && cp ../README.md Key-ti-1.0.0/ 2>/dev/null || true && zip -r -q Key-ti-1.0.0-distribution.zip Key-ti-1.0.0 && rm -rf Key-ti-1.0.0 && echo '' && echo '✅ 배포 파일 생성 완료: release/Key-ti-1.0.0-distribution.zip' && echo ''"
+  },
+  "keywords": [
+    "aws",
+    "saml",
+    "session",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "electron": "^38.3.0",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sts": "^3.0.0"
+  },
+  "build": {
+    "appId": "com.piongate.key-ti",
+    "productName": "Key-ti",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/key-logo.png",
+      "type": "distribution",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Key-ti needs to open browser for SAML authentication."
+      }
+    },
+    "files": [
+      "dist/**/*",
+      "build/key-logo.png",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/key-logo.png",
+        "to": "key-logo.png"
+      }
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    }
+  }
+}
