@@ -27,6 +27,7 @@ jobs:
           # 현재 버전 가져오기
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "Current version: $CURRENT_VERSION"
+          echo "previous_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
           # 버전을 0.0.1 증가
           IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
@@ -47,6 +48,60 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # 이전 태그 찾기
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous tag found, using all commits"
+            COMMITS=$(git log --pretty=format:"- %s" --no-merges)
+          else
+            echo "Previous tag: $PREV_TAG"
+            COMMITS=$(git log $PREV_TAG..HEAD --pretty=format:"- %s" --no-merges)
+          fi
+
+          # 변경사항을 카테고리별로 분류
+          FEATURES=$(echo "$COMMITS" | grep -i "^- feat" || true)
+          FIXES=$(echo "$COMMITS" | grep -i "^- fix" || true)
+          REFACTORS=$(echo "$COMMITS" | grep -i "^- refactor" || true)
+          DOCS=$(echo "$COMMITS" | grep -i "^- docs" || true)
+          OTHERS=$(echo "$COMMITS" | grep -iv "^- \(feat\|fix\|refactor\|docs\)" || true)
+
+          # 변경사항 생성
+          CHANGELOG=""
+
+          if [ -n "$FEATURES" ]; then
+            CHANGELOG="${CHANGELOG}#### ✨ 새로운 기능\n${FEATURES}\n\n"
+          fi
+
+          if [ -n "$FIXES" ]; then
+            CHANGELOG="${CHANGELOG}#### 🐛 버그 수정\n${FIXES}\n\n"
+          fi
+
+          if [ -n "$REFACTORS" ]; then
+            CHANGELOG="${CHANGELOG}#### ♻️ 리팩토링\n${REFACTORS}\n\n"
+          fi
+
+          if [ -n "$DOCS" ]; then
+            CHANGELOG="${CHANGELOG}#### 📝 문서\n${DOCS}\n\n"
+          fi
+
+          if [ -n "$OTHERS" ]; then
+            CHANGELOG="${CHANGELOG}#### 기타 변경사항\n${OTHERS}\n\n"
+          fi
+
+          # 변경사항이 없으면 기본 메시지
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="- 내부 개선 및 버그 수정"
+          fi
+
+          # GitHub Output으로 전달 (멀티라인 처리)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -61,7 +116,7 @@ jobs:
             ## Key-ti v${{ steps.version.outputs.version }}
 
             ### 변경사항
-            - [변경사항을 여기에 작성하세요]
+            ${{ steps.changelog.outputs.changelog }}
 
             ### 설치 방법
             1. `Key-ti-${{ steps.version.outputs.version }}-distribution.zip` 다운로드
@@ -70,6 +125,10 @@ jobs:
 
             ### 업데이트
             기존 사용자는 앱 실행 시 자동으로 업데이트 알림을 받습니다.
+
+            ---
+
+            **Full Changelog**: https://github.com/kiduko/key-ti/compare/v${{ steps.version.outputs.previous_version }}...v${{ steps.version.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
