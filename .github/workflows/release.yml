@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.0.1)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Update version in package.json
+        run: |
+          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+
+      - name: Build application
+        run: npm run build
+
+      - name: Build release packages
+        run: npm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: Release v${{ github.event.inputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            release/*.dmg
+            release/*.zip
+            release/*.blockmap
+          body: |
+            ## Key-ti v${{ github.event.inputs.version }}
+
+            ### 변경사항
+            - [변경사항을 여기에 작성하세요]
+
+            ### 설치 방법
+            1. `Key-ti-${{ github.event.inputs.version }}-arm64-mac.zip` 다운로드
+            2. 압축 해제 후 `Key-ti.app`을 Applications 폴더로 이동
+            3. 필요시 `xattr -cr /Applications/Key-ti.app` 실행
+
+            ### 자동 업데이트
+            기존 사용자는 앱 실행 시 자동으로 업데이트 알림을 받습니다.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit version change
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${{ github.event.inputs.version }}" || echo "No changes to commit"
+          git push
