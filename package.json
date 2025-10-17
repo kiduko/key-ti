@@ -10,7 +10,7 @@
     "watch": "tsc -w",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder && npm run post-dist",
-    "post-dist": "cd release && rm -rf 'Key-ti.app' Key-ti-1.0.0 Key-ti-1.0.0-distribution.zip && unzip -q 'Key-ti-1.0.0-arm64-mac.zip' && mkdir -p Key-ti-1.0.0 && mv 'Key-ti.app' Key-ti-1.0.0/ && cp ../install.sh Key-ti-1.0.0/ 2>/dev/null || true && cp ../README.md Key-ti-1.0.0/ 2>/dev/null || true && zip -r -q Key-ti-1.0.0-distribution.zip Key-ti-1.0.0 && rm -rf Key-ti-1.0.0 && echo '' && echo '✅ 배포 파일 생성 완료: release/Key-ti-1.0.0-distribution.zip' && echo ''"
+    "post-dist": "./scripts/post-dist.sh"
   },
   "keywords": [
     "aws",

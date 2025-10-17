@@ -19,7 +19,8 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nAdd GitHub Actions release workflow\n\n- Added workflow_dispatch trigger for manual releases\n- Automated version bumping in package.json\n- Automatic build and release to GitHub Releases\n- Uploads DMG, ZIP, and blockmap files\n- Updates version in repository after release\n\nUsage:\n1. Go to Actions tab on GitHub\n2. Select \"Release\" workflow\n3. Click \"Run workflow\"\n4. Enter version (e.g., 1.0.1)\n5. Workflow will create release and upload assets\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git push:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "ask": []
