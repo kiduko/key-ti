@@ -16,6 +16,172 @@ let configManager: ConfigManager;
 let samlAuth: SAMLAuthenticator;
 let awsManager: AWSSessionManager;
 
+// 프로필별 자동 갱신 타이머 관리
+const renewalTimers = new Map<string, NodeJS.Timeout>();
+const renewalRetryCount = new Map<string, number>();
+
+// 세션 자동 갱신 스케줄링
+function scheduleAutoRenewal(alias: string, expirationDate: Date) {
+  // 기존 타이머가 있으면 취소
+  const existingTimer = renewalTimers.get(alias);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+
+  const now = new Date().getTime();
+  const expiration = expirationDate.getTime();
+  const thirteenMinutesBeforeExpiration = expiration - (13 * 60 * 1000); // 13분 전
+  const timeUntilRenewal = thirteenMinutesBeforeExpiration - now;
+
+  console.log(`Auto-renewal scheduled for ${alias}: ${new Date(thirteenMinutesBeforeExpiration).toLocaleString()}`);
+
+  // 이미 13분 이내로 남았다면 즉시 갱신
+  if (timeUntilRenewal <= 0) {
+    console.log(`Session for ${alias} expires soon, renewing immediately`);
+    autoRenewSession(alias);
+    return;
+  }
+
+  // 타이머 설정
+  const timer = setTimeout(() => {
+    autoRenewSession(alias);
+  }, timeUntilRenewal);
+
+  renewalTimers.set(alias, timer);
+}
+
+// 세션 자동 갱신 실행 (재시도 로직 포함)
+async function autoRenewSession(alias: string, retryAttempt: number = 0) {
+  const maxRetries = 3;
+  const retryDelayMs = 10000; // 10초
+
+  console.log(`Auto-renewing session for ${alias} (attempt ${retryAttempt + 1}/${maxRetries})`);
+
+  try {
+    const profiles = configManager.getProfiles();
+    const profile = profiles.find(p => p.alias === alias);
+
+    if (!profile) {
+      console.log(`Profile ${alias} not found, skipping auto-renewal`);
+      return;
+    }
+
+    // 활성 프로필인지 확인
+    const activeProfiles = configManager.getActiveProfiles();
+    if (!activeProfiles.includes(alias)) {
+      console.log(`Profile ${alias} is not active, skipping auto-renewal`);
+      return;
+    }
+
+    // 백그라운드에서 자동으로 갱신 시도 (silent 모드 - 창 숨김, 포커스 안뺏김)
+    console.log(`Opening browser for auto-renewal: ${alias} (silent mode)`);
+    const samlAssertion = await samlAuth.authenticate(profile.samlUrl, { silent: true });
+
+    const sessionDuration = process.env.KEY_TI_SESSION_DURATION
+      ? parseInt(process.env.KEY_TI_SESSION_DURATION)
+      : 43200;
+
+    const credentials = await awsManager.assumeRoleWithSAML(
+      profile.roleArn,
+      profile.idp,
+      samlAssertion,
+      sessionDuration
+    );
+
+    await awsManager.saveCredentialsToAWSConfig(profile.profileName, credentials);
+
+    configManager.updateProfile(alias, {
+      ...profile,
+      lastRefresh: new Date().toISOString(),
+      expiration: credentials.expiration.toISOString()
+    });
+
+    // 다음 갱신 스케줄링
+    scheduleAutoRenewal(alias, credentials.expiration);
+
+    // Tray 업데이트
+    updateTray();
+
+    // 성공 시 재시도 카운트 초기화
+    renewalRetryCount.delete(alias);
+
+    console.log(`Auto-renewal successful for ${alias}, next expiration: ${credentials.expiration.toISOString()}`);
+
+    // 사용자에게 알림 및 UI 업데이트
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.executeJavaScript(`
+        if (typeof window.loadProfiles === 'function') {
+          window.loadProfiles();
+        }
+        window.showStatus('세션이 자동으로 갱신되었습니다: ${alias}', 'success');
+      `);
+    }
+  } catch (error) {
+    console.error(`Auto-renewal failed for ${alias} (attempt ${retryAttempt + 1}):`, error);
+
+    // 재시도 가능한 경우
+    if (retryAttempt < maxRetries - 1) {
+      console.log(`Retrying auto-renewal for ${alias} in ${retryDelayMs / 1000} seconds...`);
+
+      setTimeout(() => {
+        autoRenewSession(alias, retryAttempt + 1);
+      }, retryDelayMs);
+    } else {
+      // 최대 재시도 횟수 초과 시 사용자에게 알림
+      console.error(`Auto-renewal failed for ${alias} after ${maxRetries} attempts`);
+      renewalRetryCount.delete(alias);
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.executeJavaScript(`
+          window.showStatus('세션 자동 갱신 실패: ${alias}. 수동으로 갱신해주세요.', 'error');
+        `);
+      }
+    }
+  }
+}
+
+// 타이머 취소
+function cancelAutoRenewal(alias: string) {
+  const timer = renewalTimers.get(alias);
+  if (timer) {
+    clearTimeout(timer);
+    renewalTimers.delete(alias);
+    console.log(`Auto-renewal cancelled for ${alias}`);
+  }
+}
+
+// Dock 아이콘 업데이트 (활성 세션 여부에 따라)
+function updateDockIcon() {
+  if (process.platform !== 'darwin' || !app.dock) {
+    return;
+  }
+
+  const activeProfiles = configManager.getActiveProfiles();
+  const hasActiveSessions = activeProfiles.length > 0;
+
+  const getIconPath = () => {
+    if (app.isPackaged) {
+      return path.join(process.resourcesPath, 'key-logo.png');
+    } else {
+      return path.join(__dirname, '..', 'build', 'key-logo.png');
+    }
+  };
+
+  const iconPath = getIconPath();
+  let dockIcon = nativeImage.createFromPath(iconPath);
+
+  // 활성 세션이 있으면 녹색 배지 추가
+  if (hasActiveSessions) {
+    // 배지로 활성 세션 수 표시
+    app.dock.setBadge(activeProfiles.length.toString());
+  } else {
+    // 배지 제거
+    app.dock.setBadge('');
+  }
+
+  app.dock.setIcon(dockIcon);
+}
+
 function createWindow() {
   // 로고 아이콘 경로 (개발 vs 배포)
   const getIconPath = () => {
@@ -103,14 +269,11 @@ function updateTray() {
   const activeProfiles = configManager.getActiveProfiles();
   const profiles = configManager.getProfiles();
 
-  // 활성 세션이 1개면 프로필 이름, 2개 이상이면 숫자 표시
-  let titleText = '';
-  if (activeProfiles.length === 1) {
-    const profile = profiles.find(p => p.alias === activeProfiles[0]);
-    titleText = profile ? profile.alias : '1';
-  } else if (activeProfiles.length > 1) {
-    titleText = `${activeProfiles.length}`;
-  }
+  // Dock 아이콘도 함께 업데이트
+  updateDockIcon();
+
+  // 활성 세션 수 항상 표시 (통일성)
+  const titleText = `${activeProfiles.length}`;
 
   tray.setTitle(titleText);
   tray.setToolTip(`Key-ti - ${activeProfiles.length}개 활성 세션`);
@@ -264,6 +427,9 @@ app.whenReady().then(() => {
   createTray();
   createWindow();
 
+  // 초기 Dock 아이콘 상태 설정
+  updateDockIcon();
+
   // 윈도우가 준비되면 기존 AWS credentials 확인
   if (mainWindow) {
     mainWindow.webContents.on('did-finish-load', () => {
@@ -275,6 +441,19 @@ app.whenReady().then(() => {
 
   // 자동 업데이트 설정
   setupAutoUpdater();
+
+  // 기존 활성 프로필들의 자동 갱신 스케줄링
+  const activeProfiles = configManager.getActiveProfiles();
+  const allProfiles = configManager.getProfiles();
+
+  activeProfiles.forEach(alias => {
+    const profile = allProfiles.find(p => p.alias === alias);
+    if (profile && profile.expiration) {
+      const expirationDate = new Date(profile.expiration);
+      scheduleAutoRenewal(alias, expirationDate);
+      console.log(`Scheduled auto-renewal for existing active profile: ${alias}`);
+    }
+  });
 
   app.on('activate', () => {
     if (mainWindow === null) {
@@ -522,11 +701,16 @@ ipcMain.handle('activate-profile', async (event, alias: string) => {
 
     // AWS STS로 임시 자격 증명 획득
     // SAMLAssertion은 이미 base64이므로 그대로 전달
+    // 테스트용으로 세션 시간을 줄이려면 환경 변수 설정: export KEY_TI_SESSION_DURATION=300 (5분)
+    const sessionDuration = process.env.KEY_TI_SESSION_DURATION
+      ? parseInt(process.env.KEY_TI_SESSION_DURATION)
+      : 43200; // 기본값: 12시간
+
     const credentials = await awsManager.assumeRoleWithSAML(
       profile.roleArn,
       profile.idp,
       samlAssertion,
-      43200 // 12시간
+      sessionDuration
     );
 
     console.log('Main: Got credentials, expiration:', credentials.expiration);
@@ -545,6 +729,9 @@ ipcMain.handle('activate-profile', async (event, alias: string) => {
 
     // 활성 프로필로 설정
     configManager.setActiveProfile(alias);
+
+    // 자동 갱신 스케줄링 (만료 10분 전)
+    scheduleAutoRenewal(alias, credentials.expiration);
 
     // Tray 업데이트
     updateTray();
@@ -579,6 +766,9 @@ ipcMain.handle('deactivate-profile', async (event, alias: string) => {
 
     // ConfigManager에서 활성 프로필 제거
     configManager.removeActiveProfile(alias);
+
+    // 자동 갱신 타이머 취소
+    cancelAutoRenewal(alias);
 
     // Tray 업데이트
     updateTray();

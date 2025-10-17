@@ -6,11 +6,15 @@ export class SAMLAuthenticator {
   private authWindow: BrowserWindow | null = null;
   private useSystemBrowser: boolean = false;
 
-  async authenticate(samlUrl: string): Promise<string> {
+  async authenticate(samlUrl: string, options?: { silent?: boolean }): Promise<string> {
     return new Promise((resolve, reject) => {
+      // 자동 갱신(silent) 모드일 때는 창을 숨기고 포커스를 가져오지 않음
       this.authWindow = new BrowserWindow({
         width: 1000,
         height: 800,
+        show: !options?.silent, // silent 모드면 창 숨김
+        focusable: !options?.silent, // silent 모드면 포커스 불가
+        skipTaskbar: options?.silent, // silent 모드면 태스크바에 표시 안함
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
@@ -111,11 +115,11 @@ export class SAMLAuthenticator {
     }
   }
 
-  async getSAMLAssertion(samlUrl: string): Promise<string> {
-    console.log('SAML: Getting SAML assertion from:', samlUrl);
+  async getSAMLAssertion(samlUrl: string, options?: { silent?: boolean }): Promise<string> {
+    console.log('SAML: Getting SAML assertion from:', samlUrl, options?.silent ? '(silent mode)' : '');
 
     // 사용자가 브라우저에서 로그인 완료 후 SAML assertion 반환
-    const samlResponse = await this.authenticate(samlUrl);
+    const samlResponse = await this.authenticate(samlUrl, options);
 
     console.log('SAML: Got SAMLResponse (base64), length:', samlResponse.length);
 

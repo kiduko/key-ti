@@ -38,6 +38,42 @@ let activeProfile: string | undefined;
 let timerInterval: any = null;
 let editingAlias: string | null = null;
 
+// 시간 계산 및 포맷팅 헬퍼 함수
+function calculateTimeRemaining(expirationStr: string): {
+  seconds: number;
+  text: string;
+  className: string;
+} {
+  const expiration = new Date(expirationStr);
+  const now = new Date();
+  const timeRemainingSeconds = Math.floor((expiration.getTime() - now.getTime()) / 1000);
+
+  if (timeRemainingSeconds <= 0) {
+    return {
+      seconds: 0,
+      text: '만료됨',
+      className: 'time-expired'
+    };
+  }
+
+  const hours = Math.floor(timeRemainingSeconds / 3600);
+  const minutes = Math.floor((timeRemainingSeconds % 3600) / 60);
+  const seconds = timeRemainingSeconds % 60;
+
+  let className = 'time-normal';
+  if (timeRemainingSeconds < 300) { // 5분 미만
+    className = 'time-critical';
+  } else if (timeRemainingSeconds < 3600) { // 1시간 미만
+    className = 'time-warning';
+  }
+
+  return {
+    seconds: timeRemainingSeconds,
+    text: `${hours}시간 ${minutes}분 ${seconds}초`,
+    className
+  };
+}
+
 async function loadProfiles() {
   console.log('Renderer: Loading profiles...');
 
@@ -68,33 +104,13 @@ function renderProfiles() {
     .map(
       profile => {
         const isActive = profile.isActive || false;
-        const expiration = profile.expiration ? new Date(profile.expiration) : null;
-        const now = new Date();
-        const isExpired = expiration && expiration < now;
-        const timeRemainingSeconds = expiration ? Math.floor((expiration.getTime() - now.getTime()) / 1000) : null;
-
         let expirationText = '';
-        let timeClass = 'time-normal';
 
-        if (expiration) {
-          if (isExpired) {
-            expirationText = '<span class="time-expired">만료됨</span>';
-            timeClass = 'time-expired';
-          } else if (timeRemainingSeconds !== null) {
-            const hours = Math.floor(timeRemainingSeconds / 3600);
-            const minutes = Math.floor((timeRemainingSeconds % 3600) / 60);
-            const seconds = timeRemainingSeconds % 60;
-
-            if (timeRemainingSeconds < 300) { // 5분 미만
-              timeClass = 'time-critical';
-            } else if (timeRemainingSeconds < 3600) { // 1시간 미만
-              timeClass = 'time-warning';
-            }
-
-            expirationText = `<span class="${timeClass}" data-expiration="${profile.expiration}" onclick="activateProfile('${profile.alias}')" style="cursor: pointer; text-decoration: underline;">
-              ${hours}시간 ${minutes}분 ${seconds}초
-            </span>`;
-          }
+        if (profile.expiration) {
+          const timeInfo = calculateTimeRemaining(profile.expiration);
+          expirationText = `<span class="${timeInfo.className}" data-expiration="${profile.expiration}" onclick="activateProfile('${profile.alias}')" style="cursor: pointer; text-decoration: underline;">
+            ${timeInfo.text}
+          </span>`;
         }
 
         return `
@@ -251,28 +267,9 @@ function startTimer() {
       const expirationStr = element.getAttribute('data-expiration');
       if (!expirationStr) return;
 
-      const expiration = new Date(expirationStr);
-      const now = new Date();
-      const timeRemainingSeconds = Math.floor((expiration.getTime() - now.getTime()) / 1000);
-
-      if (timeRemainingSeconds <= 0) {
-        element.textContent = '만료됨';
-        element.className = 'time-expired';
-      } else {
-        const hours = Math.floor(timeRemainingSeconds / 3600);
-        const minutes = Math.floor((timeRemainingSeconds % 3600) / 60);
-        const seconds = timeRemainingSeconds % 60;
-
-        element.textContent = `${hours}시간 ${minutes}분 ${seconds}초`;
-
-        if (timeRemainingSeconds < 300) {
-          element.className = 'time-critical';
-        } else if (timeRemainingSeconds < 3600) {
-          element.className = 'time-warning';
-        } else {
-          element.className = 'time-normal';
-        }
-      }
+      const timeInfo = calculateTimeRemaining(expirationStr);
+      element.textContent = timeInfo.text;
+      element.className = timeInfo.className;
     });
   }, 1000);
 }
@@ -290,6 +287,7 @@ async function openConsole(alias: string) {
 }
 
 // Expose functions to global scope for onclick handlers
+(window as any).loadProfiles = loadProfiles;
 (window as any).openAddProfileModal = openAddProfileModal;
 (window as any).closeProfileModal = closeProfileModal;
 (window as any).editProfile = editProfile;
