@@ -14,7 +14,8 @@
       "Bash(npx electron:*)",
       "Bash(xattr:*)",
       "Bash(unzip:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(gh issue create:*)"
     ],
     "deny": [],
     "ask": []
