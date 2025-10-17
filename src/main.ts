@@ -11,6 +11,7 @@ import { AWSProfile } from './types';
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
+let isUpdating = false; // 업데이트 설치 중 플래그
 let configManager: ConfigManager;
 let samlAuth: SAMLAuthenticator;
 let awsManager: AWSSessionManager;
@@ -277,8 +278,12 @@ function setupAutoUpdater() {
         cancelId: 1
       }).then(result => {
         if (result.response === 0) {
-          // 모든 윈도우 종료 없이 즉시 재시작
+          // 업데이트 설치 플래그 설정 (before-quit에서 백업 스킵)
+          isUpdating = true;
           isQuitting = true;
+
+          // 즉시 종료 및 설치
+          app.removeAllListeners('window-all-closed');
           autoUpdater.quitAndInstall(false, true);
         }
       });
@@ -354,6 +359,11 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', async (event) => {
+  // 업데이트 설치 중이면 백업 스킵하고 바로 종료
+  if (isUpdating) {
+    return;
+  }
+
   if (!isQuitting) {
     event.preventDefault();
     isQuitting = true;
