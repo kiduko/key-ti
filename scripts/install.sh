@@ -2,30 +2,16 @@
 
 echo "Key-ti 설치 중..."
 
-# 현재 디렉토리에서 ZIP 파일 찾기
-ZIP_FILE=$(ls Key-ti-*-arm64-mac.zip 2>/dev/null | head -n 1)
-
-if [ -z "$ZIP_FILE" ]; then
-    echo "❌ 오류: Key-ti ZIP 파일을 찾을 수 없습니다."
+# Key-ti.app 찾기 (distribution.zip에서 이미 압축 해제된 상태)
+if [ ! -d "Key-ti.app" ]; then
+    echo "❌ 오류: Key-ti.app을 찾을 수 없습니다."
+    echo "distribution.zip 파일을 압축 해제한 폴더에서 실행하세요."
     exit 1
 fi
 
-echo "📦 $ZIP_FILE 발견"
-
-# ZIP 압축 해제
-if [ -f "$ZIP_FILE" ]; then
-    echo "압축 해제 중..."
-    unzip -q "$ZIP_FILE"
-
-    echo "Applications 폴더로 복사 중..."
-    cp -R "Key-ti.app" /Applications/
-fi
-
-# App이 현재 디렉토리에 이미 있는 경우 (distribution zip에서 압축 해제한 경우)
-if [ -d "Key-ti.app" ]; then
-    echo "Applications 폴더로 복사 중..."
-    cp -R "Key-ti.app" /Applications/
-fi
+echo "📦 Key-ti.app 발견"
+echo "Applications 폴더로 복사 중..."
+cp -R "Key-ti.app" /Applications/
 
 # quarantine 속성 제거
 echo "보안 속성 제거 중..."
