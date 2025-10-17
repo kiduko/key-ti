@@ -55,10 +55,8 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            release/Key-ti-${{ steps.version.outputs.version }}-arm64-mac.zip
-            release/Key-ti-${{ steps.version.outputs.version }}-arm64-mac.zip.blockmap
-            release/latest-mac.yml
             release/Key-ti-${{ steps.version.outputs.version }}-distribution.zip
+            release/latest-mac.yml
           body: |
             ## Key-ti v${{ steps.version.outputs.version }}
 
@@ -66,16 +64,9 @@ jobs:
             - [변경사항을 여기에 작성하세요]
 
             ### 설치 방법
-
-            #### 방법 1: 설치 스크립트 사용 (권장)
             1. `Key-ti-${{ steps.version.outputs.version }}-distribution.zip` 다운로드
             2. 압축 해제
             3. 터미널에서 `./install.sh` 실행
-
-            #### 방법 2: 수동 설치
-            1. `Key-ti-${{ steps.version.outputs.version }}-arm64-mac.zip` 다운로드
-            2. 압축 해제 후 `Key-ti.app`을 Applications 폴더로 이동
-            3. 터미널에서 `xattr -cr /Applications/Key-ti.app` 실행
 
             ### 업데이트
             기존 사용자는 앱 실행 시 자동으로 업데이트 알림을 받습니다.
