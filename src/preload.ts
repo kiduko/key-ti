@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getProfiles: () => ipcRenderer.invoke('get-profiles'),
   addProfile: (profile: any) => ipcRenderer.invoke('add-profile', profile),
   updateProfile: (alias: string, profile: any) => ipcRenderer.invoke('update-profile', alias, profile),

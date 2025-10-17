@@ -246,7 +246,9 @@ function setupAutoUpdater() {
 
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.executeJavaScript(`
-        window.showStatus('업데이트 다운로드 중: ${percent}%', 'info');
+        if (typeof window.showDownloadProgress === 'function') {
+          window.showDownloadProgress(${percent});
+        }
       `);
     }
   });
@@ -256,6 +258,13 @@ function setupAutoUpdater() {
     console.log('Update downloaded:', info);
 
     if (mainWindow && !mainWindow.isDestroyed()) {
+      // 프로그레스 바 제거
+      mainWindow.webContents.executeJavaScript(`
+        if (typeof window.hideDownloadProgress === 'function') {
+          window.hideDownloadProgress();
+        }
+      `);
+
       dialog.showMessageBox(mainWindow, {
         type: 'info',
         title: '업데이트 준비 완료',
@@ -266,7 +275,10 @@ function setupAutoUpdater() {
         cancelId: 1
       }).then(result => {
         if (result.response === 0) {
-          autoUpdater.quitAndInstall();
+          // 강제 종료하여 업데이트 설치
+          setImmediate(() => {
+            autoUpdater.quitAndInstall(false, true);
+          });
         }
       });
     }
@@ -412,6 +424,10 @@ app.on('before-quit', async (event) => {
 });
 
 // IPC Handlers
+ipcMain.handle('get-app-version', async () => {
+  return app.getVersion();
+});
+
 ipcMain.handle('get-profiles', async () => {
   return configManager.getProfiles();
 });

@@ -12,6 +12,7 @@ interface AWSProfile {
 declare global {
   interface Window {
     electronAPI: {
+      getAppVersion: () => Promise<string>;
       getProfiles: () => Promise<AWSProfile[]>;
       addProfile: (profile: AWSProfile) => Promise<void>;
       updateProfile: (alias: string, profile: AWSProfile) => Promise<void>;
@@ -297,6 +298,31 @@ async function openConsole(alias: string) {
 (window as any).deactivateProfile = deactivateProfile;
 (window as any).openConsole = openConsole;
 
+// 다운로드 프로그레스 표시
+function showDownloadProgress(percent: number) {
+  const progressContainer = document.getElementById('downloadProgress');
+  const progressBar = document.getElementById('progressBar');
+  const progressPercent = document.getElementById('progressPercent');
+
+  if (progressContainer && progressBar && progressPercent) {
+    progressContainer.style.display = 'flex';
+    progressBar.style.width = `${percent}%`;
+    progressPercent.textContent = `${percent}%`;
+  }
+}
+
+// 다운로드 프로그레스 숨기기
+function hideDownloadProgress() {
+  const progressContainer = document.getElementById('downloadProgress');
+  if (progressContainer) {
+    progressContainer.style.display = 'none';
+  }
+}
+
+// window에 함수 노출
+(window as any).showDownloadProgress = showDownloadProgress;
+(window as any).hideDownloadProgress = hideDownloadProgress;
+
 function showStatus(message: string, type: 'success' | 'error' | 'info') {
   const container = document.getElementById('toastContainer');
   if (!container) return;
@@ -339,8 +365,15 @@ function showStatus(message: string, type: 'success' | 'error' | 'info') {
 }
 
 // Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   console.log('DOM loaded, initializing...');
+
+  // 버전 정보 표시
+  const version = await window.electronAPI.getAppVersion();
+  const versionEl = document.getElementById('appVersion');
+  if (versionEl) {
+    versionEl.textContent = `v${version}`;
+  }
 
   // Form submission
   const profileForm = document.getElementById('profileForm');
