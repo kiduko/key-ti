@@ -222,13 +222,15 @@ function setupAutoUpdater() {
         cancelId: 1
       }).then(result => {
         if (result.response === 0) {
-          autoUpdater.downloadUpdate();
-
+          // 프로그레스 바 표시 (0%로 시작)
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.executeJavaScript(`
-              window.showStatus('업데이트 다운로드 중...', 'info');
+              if (typeof window.showDownloadProgress === 'function') {
+                window.showDownloadProgress(0);
+              }
             `);
           }
+          autoUpdater.downloadUpdate();
         }
       });
     }
@@ -275,10 +277,9 @@ function setupAutoUpdater() {
         cancelId: 1
       }).then(result => {
         if (result.response === 0) {
-          // 강제 종료하여 업데이트 설치
-          setImmediate(() => {
-            autoUpdater.quitAndInstall(false, true);
-          });
+          // 모든 윈도우 종료 없이 즉시 재시작
+          isQuitting = true;
+          autoUpdater.quitAndInstall(false, true);
         }
       });
     }
@@ -289,9 +290,21 @@ function setupAutoUpdater() {
     console.error('Auto updater error:', error);
 
     if (mainWindow && !mainWindow.isDestroyed()) {
+      // 프로그레스 바 숨기기
       mainWindow.webContents.executeJavaScript(`
-        window.showStatus('업데이트 확인 중 오류가 발생했습니다.', 'error');
+        if (typeof window.hideDownloadProgress === 'function') {
+          window.hideDownloadProgress();
+        }
       `);
+
+      // 에러 메시지 표시
+      dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: '업데이트 오류',
+        message: '업데이트 중 오류가 발생했습니다.',
+        detail: error.message || '알 수 없는 오류',
+        buttons: ['확인']
+      });
     }
   });
 
