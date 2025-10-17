@@ -27,11 +27,17 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@aws-sdk/client-sts": "^3.0.0"
+    "@aws-sdk/client-sts": "^3.0.0",
+    "electron-updater": "^6.6.2"
   },
   "build": {
     "appId": "com.piongate.key-ti",
     "productName": "Key-ti",
+    "publish": {
+      "provider": "github",
+      "owner": "kiduko",
+      "repo": "key-ti"
+    },
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [

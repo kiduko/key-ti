@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, shell, Menu, Tray, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, Tray, nativeImage, dialog } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -190,6 +191,104 @@ function checkExistingCredentials() {
   }
 }
 
+// 자동 업데이트 설정
+function setupAutoUpdater() {
+  // 개발 모드에서는 업데이트 체크 안함
+  if (!app.isPackaged) {
+    console.log('Development mode - auto update disabled');
+    return;
+  }
+
+  // 자동 다운로드 비활성화 (사용자에게 먼저 알림)
+  autoUpdater.autoDownload = false;
+
+  // 업데이트 확인
+  autoUpdater.on('checking-for-update', () => {
+    console.log('Checking for updates...');
+  });
+
+  // 업데이트 사용 가능
+  autoUpdater.on('update-available', (info) => {
+    console.log('Update available:', info);
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: '업데이트 사용 가능',
+        message: `새로운 버전 ${info.version}이 사용 가능합니다.`,
+        detail: '지금 다운로드하시겠습니까?',
+        buttons: ['다운로드', '나중에'],
+        defaultId: 0,
+        cancelId: 1
+      }).then(result => {
+        if (result.response === 0) {
+          autoUpdater.downloadUpdate();
+
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.executeJavaScript(`
+              window.showStatus('업데이트 다운로드 중...', 'info');
+            `);
+          }
+        }
+      });
+    }
+  });
+
+  // 업데이트 없음
+  autoUpdater.on('update-not-available', () => {
+    console.log('No updates available');
+  });
+
+  // 다운로드 진행 상황
+  autoUpdater.on('download-progress', (progressObj) => {
+    const percent = Math.floor(progressObj.percent);
+    console.log(`Download progress: ${percent}%`);
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.executeJavaScript(`
+        window.showStatus('업데이트 다운로드 중: ${percent}%', 'info');
+      `);
+    }
+  });
+
+  // 다운로드 완료
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('Update downloaded:', info);
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: '업데이트 준비 완료',
+        message: `버전 ${info.version} 업데이트가 다운로드되었습니다.`,
+        detail: '지금 재시작하여 업데이트를 설치하시겠습니까?',
+        buttons: ['재시작', '나중에'],
+        defaultId: 0,
+        cancelId: 1
+      }).then(result => {
+        if (result.response === 0) {
+          autoUpdater.quitAndInstall();
+        }
+      });
+    }
+  });
+
+  // 에러 처리
+  autoUpdater.on('error', (error) => {
+    console.error('Auto updater error:', error);
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.executeJavaScript(`
+        window.showStatus('업데이트 확인 중 오류가 발생했습니다.', 'error');
+      `);
+    }
+  });
+
+  // 앱 시작 5초 후 업데이트 확인
+  setTimeout(() => {
+    autoUpdater.checkForUpdates();
+  }, 5000);
+}
+
 app.whenReady().then(() => {
   configManager = new ConfigManager();
   samlAuth = new SAMLAuthenticator();
@@ -211,6 +310,9 @@ app.whenReady().then(() => {
       }, 1000);
     });
   }
+
+  // 자동 업데이트 설정
+  setupAutoUpdater();
 
   app.on('activate', () => {
     if (mainWindow === null) {
