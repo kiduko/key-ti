@@ -193,6 +193,10 @@ function checkExistingCredentials() {
 }
 
 // 자동 업데이트 설정
+// TODO: 코드 서명 추가 후 자동 업데이트 활성화
+// - Apple Developer Program 가입 필요 ($99/year)
+// - electron-builder에 코드 서명 인증서 설정
+// - 현재는 GitHub Releases 페이지로 수동 업데이트 안내
 function setupAutoUpdater() {
   // 개발 모드에서는 업데이트 체크 안함
   if (!app.isPackaged) {
@@ -217,21 +221,14 @@ function setupAutoUpdater() {
         type: 'info',
         title: '업데이트 사용 가능',
         message: `새로운 버전 ${info.version}이 사용 가능합니다.`,
-        detail: '지금 다운로드하시겠습니까?',
-        buttons: ['다운로드', '나중에'],
+        detail: 'GitHub Releases 페이지에서 다운로드하시겠습니까?',
+        buttons: ['다운로드 페이지 열기', '나중에'],
         defaultId: 0,
         cancelId: 1
       }).then(result => {
         if (result.response === 0) {
-          // 프로그레스 바 표시 (0%로 시작)
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.executeJavaScript(`
-              if (typeof window.showDownloadProgress === 'function') {
-                window.showDownloadProgress(0);
-              }
-            `);
-          }
-          autoUpdater.downloadUpdate();
+          // GitHub Releases 페이지 열기
+          shell.openExternal('https://github.com/kiduko/key-ti/releases/latest');
         }
       });
     }
@@ -242,75 +239,10 @@ function setupAutoUpdater() {
     console.log('No updates available');
   });
 
-  // 다운로드 진행 상황
-  autoUpdater.on('download-progress', (progressObj) => {
-    const percent = Math.floor(progressObj.percent);
-    console.log(`Download progress: ${percent}%`);
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.executeJavaScript(`
-        if (typeof window.showDownloadProgress === 'function') {
-          window.showDownloadProgress(${percent});
-        }
-      `);
-    }
-  });
-
-  // 다운로드 완료
-  autoUpdater.on('update-downloaded', (info) => {
-    console.log('Update downloaded:', info);
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      // 프로그레스 바 제거
-      mainWindow.webContents.executeJavaScript(`
-        if (typeof window.hideDownloadProgress === 'function') {
-          window.hideDownloadProgress();
-        }
-      `);
-
-      dialog.showMessageBox(mainWindow, {
-        type: 'info',
-        title: '업데이트 준비 완료',
-        message: `버전 ${info.version} 업데이트가 다운로드되었습니다.`,
-        detail: '지금 재시작하여 업데이트를 설치하시겠습니까?',
-        buttons: ['재시작', '나중에'],
-        defaultId: 0,
-        cancelId: 1
-      }).then(result => {
-        if (result.response === 0) {
-          // 업데이트 설치 플래그 설정 (before-quit에서 백업 스킵)
-          isUpdating = true;
-          isQuitting = true;
-
-          // 즉시 종료 및 설치
-          app.removeAllListeners('window-all-closed');
-          autoUpdater.quitAndInstall(false, true);
-        }
-      });
-    }
-  });
-
   // 에러 처리
   autoUpdater.on('error', (error) => {
     console.error('Auto updater error:', error);
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      // 프로그레스 바 숨기기
-      mainWindow.webContents.executeJavaScript(`
-        if (typeof window.hideDownloadProgress === 'function') {
-          window.hideDownloadProgress();
-        }
-      `);
-
-      // 에러 메시지 표시
-      dialog.showMessageBox(mainWindow, {
-        type: 'error',
-        title: '업데이트 오류',
-        message: '업데이트 중 오류가 발생했습니다.',
-        detail: error.message || '알 수 없는 오류',
-        buttons: ['확인']
-      });
-    }
+    // 에러 발생 시 조용히 무시 (사용자에게 알리지 않음)
   });
 
   // 앱 시작 5초 후 업데이트 확인

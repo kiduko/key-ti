@@ -24,7 +24,7 @@ mkdir -p "Key-ti-$VERSION"
 mv 'Key-ti.app' "Key-ti-$VERSION/"
 
 # 설치 스크립트 및 README 복사
-cp ../install.sh "Key-ti-$VERSION/" 2>/dev/null || true
+cp ../scripts/install.sh "Key-ti-$VERSION/" 2>/dev/null || true
 chmod +x "Key-ti-$VERSION/install.sh" 2>/dev/null || true
 cp ../README.md "Key-ti-$VERSION/" 2>/dev/null || true
 
