@@ -1,19 +1,25 @@
 #!/bin/bash
 
-# 사용법 체크
-if [ -z "$1" ]; then
-  echo "Usage: ./scripts/release.sh <version>"
-  echo "Example: ./scripts/release.sh 1.0.1"
+# 현재 버전 가져오기
+CURRENT_VERSION=$(node -p "require('./package.json').version")
+
+echo "📌 Current version: $CURRENT_VERSION"
+
+# 버전을 0.0.1 증가
+IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+NEW_PATCH=$((patch + 1))
+NEW_VERSION="$major.$minor.$NEW_PATCH"
+
+echo "🆕 New version: $NEW_VERSION"
+echo ""
+read -p "Continue with release v$NEW_VERSION? (y/n) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+  echo "❌ Release cancelled"
   exit 1
 fi
 
-VERSION=$1
-
-# Semantic versioning 형식 확인
-if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "❌ Invalid version format. Please use semantic versioning (e.g., 1.0.1, 0.1.0)"
-  exit 1
-fi
+VERSION=$NEW_VERSION
 
 echo "🚀 Starting release process for version $VERSION"
 

@@ -2,11 +2,6 @@ name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release version (semantic versioning: x.y.z, e.g., 1.0.1, 0.1.0)'
-        required: true
-        type: string
 
 jobs:
   release:
@@ -26,18 +21,23 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Validate and update version
+      - name: Auto increment version
+        id: version
         run: |
-          VERSION="${{ github.event.inputs.version }}"
+          # 현재 버전 가져오기
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
 
-          # semantic versioning 형식 확인 (x.y.z)
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "❌ Invalid version format. Please use semantic versioning (e.g., 1.0.1, 0.1.0)"
-            exit 1
-          fi
+          # 버전을 0.0.1 증가
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+          NEW_PATCH=$((patch + 1))
+          NEW_VERSION="$major.$minor.$NEW_PATCH"
 
-          echo "✅ Version format is valid: $VERSION"
-          npm version $VERSION --no-git-tag-version
+          echo "New version: $NEW_VERSION"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+          # package.json 업데이트
+          npm version $NEW_VERSION --no-git-tag-version
 
       - name: Build application
         run: npm run build
@@ -50,22 +50,22 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ github.event.inputs.version }}
-          name: Release v${{ github.event.inputs.version }}
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
           files: |
-            release/Key-ti-${{ github.event.inputs.version }}-arm64-mac.zip
-            release/Key-ti-${{ github.event.inputs.version }}-arm64-mac.zip.blockmap
+            release/Key-ti-${{ steps.version.outputs.version }}-arm64-mac.zip
+            release/Key-ti-${{ steps.version.outputs.version }}-arm64-mac.zip.blockmap
             release/latest-mac.yml
           body: |
-            ## Key-ti v${{ github.event.inputs.version }}
+            ## Key-ti v${{ steps.version.outputs.version }}
 
             ### 변경사항
             - [변경사항을 여기에 작성하세요]
 
             ### 설치 방법
-            1. `Key-ti-${{ github.event.inputs.version }}-arm64-mac.zip` 다운로드
+            1. `Key-ti-${{ steps.version.outputs.version }}-arm64-mac.zip` 다운로드
             2. 압축 해제 후 `Key-ti.app`을 Applications 폴더로 이동
             3. 필요시 `xattr -cr /Applications/Key-ti.app` 실행
 
@@ -79,5 +79,5 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add package.json package-lock.json
-          git commit -m "chore: bump version to ${{ github.event.inputs.version }}" || echo "No changes to commit"
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }}" || echo "No changes to commit"
           git push

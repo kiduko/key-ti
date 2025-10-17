@@ -47,44 +47,33 @@ npm run dist
 
 ## GitHub Release 배포
 
+### 로컬 릴리즈 (권장)
+
 로컬에서 빌드하고 GitHub Release를 생성합니다 (macOS runner 비용 절약):
 
 ```bash
-./scripts/release.sh 1.0.1
+./scripts/release.sh
 ```
 
 스크립트가 자동으로:
-- ✅ 버전 형식 검증 (semantic versioning: x.y.z)
+- ✅ 현재 버전에서 0.0.1 자동 증가
+- ✅ 확인 후 진행 (y/n)
 - ✅ package.json 버전 업데이트
 - ✅ 앱 빌드
-- ✅ 배포 패키지 생성 (DMG, ZIP)
+- ✅ 배포 패키지 생성 (ZIP)
 - ✅ GitHub Release 생성 및 파일 업로드
 - ✅ 버전 변경사항 커밋 및 푸시
 
-### 수동 릴리즈 (대안)
+### GitHub Actions 릴리즈
 
-직접 단계별로 실행하려면:
+GitHub 웹 UI에서 릴리즈 (버전 자동 증가):
 
-```bash
-# 1. 버전 업데이트
-npm version 1.0.1 --no-git-tag-version
+1. GitHub 저장소 → **Actions** 탭
+2. **Release** workflow 선택
+3. **Run workflow** 클릭
+4. 버전 자동 증가 (현재 버전 + 0.0.1)
 
-# 2. 빌드 및 배포 패키지 생성
-npm run dist
-
-# 3. GitHub Release 생성
-gh release create v1.0.1 \
-  --title "Release v1.0.1" \
-  --notes "릴리즈 노트 내용" \
-  release/Key-ti-1.0.1-arm64-mac.zip \
-  release/Key-ti-1.0.1-arm64-mac.zip.blockmap \
-  release/latest-mac.yml
-
-# 4. 버전 커밋
-git add package.json package-lock.json
-git commit -m "chore: bump version to 1.0.1"
-git push
-```
+**참고:** macOS runner 비용이 비싸므로 로컬 릴리즈 권장
 
 ## 사용 방법
 
