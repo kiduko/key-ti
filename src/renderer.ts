@@ -29,6 +29,7 @@ declare global {
       listBackups: () => Promise<{ success: boolean; backups: any[] }>;
       loadBackup: (filename: string) => Promise<{ success: boolean; data?: any; message?: string }>;
       getAutoBackupSettings: () => Promise<{ enabled: boolean; type: string }>;
+      onUpdateAvailable: (callback: (version: string) => void) => void;
     };
   }
 }
@@ -372,6 +373,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (versionEl) {
     versionEl.textContent = `v${version}`;
   }
+
+  // 업데이트 알림 수신
+  window.electronAPI.onUpdateAvailable((newVersion: string) => {
+    if (versionEl) {
+      versionEl.innerHTML = `v${version} <a href="#" id="updateLink" style="color: #4CAF50; text-decoration: none; margin-left: 8px;">🆕 v${newVersion} 업데이트</a>`;
+
+      const updateLink = document.getElementById('updateLink');
+      if (updateLink) {
+        updateLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.electronAPI.openUrl('https://github.com/kiduko/key-ti/releases/latest');
+        });
+      }
+    }
+  });
 
   // Form submission
   const profileForm = document.getElementById('profileForm');

@@ -17,5 +17,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveBackup: (data: any) => ipcRenderer.invoke('save-backup', data),
   listBackups: () => ipcRenderer.invoke('list-backups'),
   loadBackup: (filename: string) => ipcRenderer.invoke('load-backup', filename),
-  getAutoBackupSettings: () => ipcRenderer.invoke('get-auto-backup-settings')
+  getAutoBackupSettings: () => ipcRenderer.invoke('get-auto-backup-settings'),
+  onUpdateAvailable: (callback: (version: string) => void) => {
+    ipcRenderer.on('update-available', (_, version) => callback(version));
+  }
 });

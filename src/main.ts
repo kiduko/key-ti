@@ -379,21 +379,9 @@ function setupAutoUpdater() {
   autoUpdater.on('update-available', (info) => {
     console.log('Update available:', info);
 
+    // renderer에 업데이트 정보 전달 (팝업 대신 인라인 표시)
     if (mainWindow && !mainWindow.isDestroyed()) {
-      dialog.showMessageBox(mainWindow, {
-        type: 'info',
-        title: '업데이트 사용 가능',
-        message: `새로운 버전 ${info.version}이 사용 가능합니다.`,
-        detail: 'GitHub Releases 페이지에서 다운로드하시겠습니까?',
-        buttons: ['다운로드 페이지 열기', '나중에'],
-        defaultId: 0,
-        cancelId: 1
-      }).then(result => {
-        if (result.response === 0) {
-          // GitHub Releases 페이지 열기
-          shell.openExternal('https://github.com/kiduko/key-ti/releases/latest');
-        }
-      });
+      mainWindow.webContents.send('update-available', info.version);
     }
   });
 
