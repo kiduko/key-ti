@@ -48,10 +48,13 @@ GitHub Actions를 통해 자동으로 릴리즈를 생성할 수 있습니다:
 1. GitHub 저장소의 **Actions** 탭으로 이동
 2. **Release** workflow 선택
 3. **Run workflow** 클릭
-4. 릴리즈 버전 입력 (예: 1.0.1)
+4. 릴리즈 버전 입력 (semantic versioning 형식: **x.y.z**)
+   - ✅ 올바른 형식: `1.0.1`, `0.1.0`, `2.3.4`
+   - ❌ 잘못된 형식: `0.1`, `1.0`, `v1.0.1`
 5. **Run workflow** 실행
 
 workflow가 자동으로:
+- 버전 형식 검증
 - 버전 업데이트
 - 앱 빌드
 - GitHub Release 생성
