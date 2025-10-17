@@ -1,6 +1,6 @@
 {
   "name": "key-ti",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "Key-ti - AWS Session Key Auto Renewal Tool",
   "main": "dist/main.js",
   "scripts": {
