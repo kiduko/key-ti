@@ -33,6 +33,10 @@
   "build": {
     "appId": "com.piongate.key-ti",
     "productName": "Key-ti",
+    "asar": true,
+    "asarUnpack": "**/*.node",
+    "compression": "normal",
+    "removePackageScripts": true,
     "publish": {
       "provider": "github",
       "owner": "kiduko",
@@ -54,7 +58,9 @@
     "files": [
       "dist/**/*",
       "build/key-logo.png",
-      "package.json"
+      "package.json",
+      "!node_modules/@types/**",
+      "!**/*.{ts,map}"
     ],
     "extraResources": [
       {
