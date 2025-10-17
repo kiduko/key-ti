@@ -29,7 +29,7 @@ npm run build
 echo "📦 Creating distribution packages..."
 npm run dist
 
-# 4. GitHub Release 생성
+# 4. GitHub Release 생성 (해당 버전 파일만)
 echo "🎉 Creating GitHub Release..."
 gh release create "v$VERSION" \
   --title "Release v$VERSION" \
@@ -48,9 +48,9 @@ gh release create "v$VERSION" \
 
 ---
 🤖 Generated with Key-ti release script" \
-  release/*.dmg \
-  release/*.zip \
-  release/*.blockmap
+  "release/Key-ti-$VERSION-arm64-mac.zip" \
+  "release/Key-ti-$VERSION-arm64-mac.zip.blockmap" \
+  "release/latest-mac.yml"
 
 # 5. 버전 커밋
 echo "💾 Committing version change..."

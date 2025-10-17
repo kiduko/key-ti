@@ -41,7 +41,6 @@
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
-        "dmg",
         "zip"
       ],
       "icon": "build/key-logo.png",

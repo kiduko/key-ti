@@ -72,7 +72,9 @@ npm run dist
 gh release create v1.0.1 \
   --title "Release v1.0.1" \
   --notes "릴리즈 노트 내용" \
-  release/*.dmg release/*.zip release/*.blockmap
+  release/Key-ti-1.0.1-arm64-mac.zip \
+  release/Key-ti-1.0.1-arm64-mac.zip.blockmap \
+  release/latest-mac.yml
 
 # 4. 버전 커밋
 git add package.json package-lock.json

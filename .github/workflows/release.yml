@@ -55,9 +55,9 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            release/*.dmg
-            release/*.zip
-            release/*.blockmap
+            release/Key-ti-${{ github.event.inputs.version }}-arm64-mac.zip
+            release/Key-ti-${{ github.event.inputs.version }}-arm64-mac.zip.blockmap
+            release/latest-mac.yml
           body: |
             ## Key-ti v${{ github.event.inputs.version }}
 
