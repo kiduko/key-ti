@@ -14,14 +14,18 @@ SAML 기반 AWS 세션 키 자동 갱신 프로그램
 
 ## 배포판 설치
 
-1. `Key-ti-1.0.0-distribution.zip` 압축 해제
+1. `Key-ti-{VERSION}-distribution.zip` 압축 해제 (예: Key-ti-1.0.0-distribution.zip)
 2. 터미널에서 다음 명령 실행:
 
 ```bash
-cd Key-ti-1.0.0
-chmod +x install.sh
+cd Key-ti-{VERSION}  # 예: cd Key-ti-1.0.0
 ./install.sh
 ```
+
+install.sh가 자동으로:
+- ZIP 파일을 찾아서 압축 해제
+- Key-ti.app을 Applications 폴더로 복사
+- 보안 속성 제거 (xattr)
 
 ## 개발자용 설치
 

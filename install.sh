@@ -2,22 +2,20 @@
 
 echo "Key-ti 설치 중..."
 
-# DMG 마운트 (DMG를 사용하는 경우)
-if [ -f "Key-ti-1.0.0-arm64.dmg" ]; then
-    echo "DMG 마운트 중..."
-    hdiutil attach "Key-ti-1.0.0-arm64.dmg" -quiet
+# 현재 디렉토리에서 ZIP 파일 찾기
+ZIP_FILE=$(ls Key-ti-*-arm64-mac.zip 2>/dev/null | head -n 1)
 
-    echo "Applications 폴더로 복사 중..."
-    cp -R "/Volumes/Key-ti 1.0.0-arm64/Key-ti.app" /Applications/
-
-    echo "DMG 언마운트 중..."
-    hdiutil detach "/Volumes/Key-ti 1.0.0-arm64" -quiet
+if [ -z "$ZIP_FILE" ]; then
+    echo "❌ 오류: Key-ti ZIP 파일을 찾을 수 없습니다."
+    exit 1
 fi
 
-# ZIP을 사용하는 경우
-if [ -f "Key-ti-1.0.0-arm64-mac.zip" ]; then
+echo "📦 $ZIP_FILE 발견"
+
+# ZIP 압축 해제
+if [ -f "$ZIP_FILE" ]; then
     echo "압축 해제 중..."
-    unzip -q "Key-ti-1.0.0-arm64-mac.zip"
+    unzip -q "$ZIP_FILE"
 
     echo "Applications 폴더로 복사 중..."
     cp -R "Key-ti.app" /Applications/
