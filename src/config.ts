@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
-import { ConfigData, AWSProfile } from './types';
+import { ConfigData, AWSProfile, AutoRefreshSettings } from './types';
 
 export class ConfigManager {
   private config: ConfigData;
@@ -115,5 +115,19 @@ export class ConfigManager {
   getActiveProfile(): string | undefined {
     const actives = this.getActiveProfiles();
     return actives.length > 0 ? actives[0] : undefined;
+  }
+
+  // 자동 갱신 설정 관리
+  getAutoRefreshSettings(): AutoRefreshSettings {
+    return this.config.autoRefresh || {
+      enabled: true,
+      timing: 13,
+      silent: true
+    };
+  }
+
+  setAutoRefreshSettings(settings: AutoRefreshSettings): void {
+    this.config.autoRefresh = settings;
+    this.saveConfig();
   }
 }

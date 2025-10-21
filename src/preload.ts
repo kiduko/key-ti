@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listBackups: () => ipcRenderer.invoke('list-backups'),
   loadBackup: (filename: string) => ipcRenderer.invoke('load-backup', filename),
   getAutoBackupSettings: () => ipcRenderer.invoke('get-auto-backup-settings'),
+  getAutoRefreshSettings: () => ipcRenderer.invoke('get-auto-refresh-settings'),
+  setAutoRefreshSettings: (settings: any) => ipcRenderer.invoke('set-auto-refresh-settings', settings),
   onUpdateAvailable: (callback: (version: string) => void) => {
     ipcRenderer.on('update-available', (_, version) => callback(version));
   }

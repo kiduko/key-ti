@@ -707,6 +707,53 @@
     <!-- 설정 탭 -->
     <div id="settingsTab" class="tab-content">
       <div class="section">
+        <h2 class="section-title">자동 갱신 설정</h2>
+
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+            <input type="checkbox" id="autoRefreshEnabled" style="cursor: pointer; width: 18px; height: 18px;">
+            <div>
+              <div style="font-weight: 500; margin-bottom: 4px;">자동 갱신 활성화</div>
+              <small style="color: #666; font-size: 12px;">
+                활성 세션이 만료되기 전에 자동으로 갱신합니다
+              </small>
+            </div>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label>갱신 타이밍 (만료 전 몇 분)</label>
+          <select id="autoRefreshTiming">
+            <option value="5">5분 전</option>
+            <option value="10">10분 전</option>
+            <option value="13" selected>13분 전</option>
+            <option value="15">15분 전</option>
+            <option value="20">20분 전</option>
+            <option value="30">30분 전</option>
+          </select>
+          <small style="color: #666; font-size: 12px;">• 세션 만료 전 자동 갱신 시도 시점</small>
+        </div>
+
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+            <input type="checkbox" id="autoRefreshSilent" style="cursor: pointer; width: 18px; height: 18px;">
+            <div>
+              <div style="font-weight: 500; margin-bottom: 4px;">조용한 모드 (Silent)</div>
+              <small style="color: #666; font-size: 12px;">
+                자동 갱신 시 브라우저 창을 숨기고 알림을 최소화합니다
+              </small>
+            </div>
+          </label>
+        </div>
+
+        <div style="margin-top: 24px; display: flex; gap: 8px;">
+          <button class="btn-primary" onclick="saveAutoRefreshSettings()">설정 저장</button>
+        </div>
+
+        <div id="autoRefreshStatus" style="margin-top: 16px;"></div>
+      </div>
+
+      <div class="section" style="margin-top: 32px; padding-top: 32px; border-top: 2px solid #e0e0e0;">
         <h2 class="section-title">백업 설정</h2>
 
         <div class="form-group">

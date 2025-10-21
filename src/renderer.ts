@@ -29,6 +29,8 @@ declare global {
       listBackups: () => Promise<{ success: boolean; backups: any[] }>;
       loadBackup: (filename: string) => Promise<{ success: boolean; data?: any; message?: string }>;
       getAutoBackupSettings: () => Promise<{ enabled: boolean; type: string }>;
+      getAutoRefreshSettings: () => Promise<{ enabled: boolean; timing: number; silent: boolean }>;
+      setAutoRefreshSettings: (settings: { enabled: boolean; timing: number; silent: boolean }) => Promise<{ success: boolean }>;
       onUpdateAvailable: (callback: (version: string) => void) => void;
     };
   }
@@ -507,6 +509,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else if (tabName === 'settings') {
     tabs[3].classList.add('active');
     document.getElementById('settingsTab')?.classList.add('active');
+    loadAutoRefreshSettings();
     loadBackupSettings();
   }
 };
@@ -756,6 +759,44 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+// ========== 자동 갱신 설정 기능 ==========
+async function loadAutoRefreshSettings() {
+  const settings = await window.electronAPI.getAutoRefreshSettings();
+
+  const enabledCheckbox = document.getElementById('autoRefreshEnabled') as HTMLInputElement;
+  const timingSelect = document.getElementById('autoRefreshTiming') as HTMLSelectElement;
+  const silentCheckbox = document.getElementById('autoRefreshSilent') as HTMLInputElement;
+
+  if (enabledCheckbox) enabledCheckbox.checked = settings.enabled;
+  if (timingSelect) timingSelect.value = settings.timing.toString();
+  if (silentCheckbox) silentCheckbox.checked = settings.silent;
+}
+
+(window as any).saveAutoRefreshSettings = async function() {
+  const enabledCheckbox = document.getElementById('autoRefreshEnabled') as HTMLInputElement;
+  const timingSelect = document.getElementById('autoRefreshTiming') as HTMLSelectElement;
+  const silentCheckbox = document.getElementById('autoRefreshSilent') as HTMLInputElement;
+
+  const settings = {
+    enabled: enabledCheckbox.checked,
+    timing: parseInt(timingSelect.value),
+    silent: silentCheckbox.checked
+  };
+
+  const result = await window.electronAPI.setAutoRefreshSettings(settings);
+
+  const statusDiv = document.getElementById('autoRefreshStatus')!;
+  if (result.success) {
+    statusDiv.innerHTML = '<div class="status success">자동 갱신 설정이 저장되었습니다</div>';
+  } else {
+    statusDiv.innerHTML = '<div class="status error">설정 저장 실패</div>';
+  }
+
+  setTimeout(() => {
+    statusDiv.innerHTML = '';
+  }, 3000);
+};
 
 // ========== 백업 설정 기능 ==========
 interface BackupSettings {

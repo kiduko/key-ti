@@ -22,6 +22,15 @@ const renewalRetryCount = new Map<string, number>();
 
 // 세션 자동 갱신 스케줄링
 function scheduleAutoRenewal(alias: string, expirationDate: Date) {
+  // 자동 갱신 설정 확인
+  const autoRefreshSettings = configManager.getAutoRefreshSettings();
+
+  // 자동 갱신이 비활성화되어 있으면 스케줄링 하지 않음
+  if (!autoRefreshSettings.enabled) {
+    console.log(`Auto-renewal disabled for ${alias}, skipping scheduling`);
+    return;
+  }
+
   // 기존 타이머가 있으면 취소
   const existingTimer = renewalTimers.get(alias);
   if (existingTimer) {
@@ -30,12 +39,12 @@ function scheduleAutoRenewal(alias: string, expirationDate: Date) {
 
   const now = new Date().getTime();
   const expiration = expirationDate.getTime();
-  const thirteenMinutesBeforeExpiration = expiration - (13 * 60 * 1000); // 13분 전
-  const timeUntilRenewal = thirteenMinutesBeforeExpiration - now;
+  const minutesBeforeExpiration = expiration - (autoRefreshSettings.timing * 60 * 1000);
+  const timeUntilRenewal = minutesBeforeExpiration - now;
 
-  console.log(`Auto-renewal scheduled for ${alias}: ${new Date(thirteenMinutesBeforeExpiration).toLocaleString()}`);
+  console.log(`Auto-renewal scheduled for ${alias}: ${new Date(minutesBeforeExpiration).toLocaleString()} (${autoRefreshSettings.timing}분 전)`);
 
-  // 이미 13분 이내로 남았다면 즉시 갱신
+  // 이미 설정된 시간 이내로 남았다면 즉시 갱신
   if (timeUntilRenewal <= 0) {
     console.log(`Session for ${alias} expires soon, renewing immediately`);
     autoRenewSession(alias);
@@ -73,9 +82,12 @@ async function autoRenewSession(alias: string, retryAttempt: number = 0) {
       return;
     }
 
-    // 백그라운드에서 자동으로 갱신 시도 (silent 모드 - 창 숨김, 포커스 안뺏김)
-    console.log(`Opening browser for auto-renewal: ${alias} (silent mode)`);
-    const samlAssertion = await samlAuth.authenticate(profile.samlUrl, { silent: true });
+    // 자동 갱신 설정에 따라 silent 모드 결정
+    const autoRefreshSettings = configManager.getAutoRefreshSettings();
+    const silentMode = autoRefreshSettings.silent;
+
+    console.log(`Opening browser for auto-renewal: ${alias} (silent: ${silentMode})`);
+    const samlAssertion = await samlAuth.authenticate(profile.samlUrl, { silent: silentMode });
 
     const sessionDuration = process.env.KEY_TI_SESSION_DURATION
       ? parseInt(process.env.KEY_TI_SESSION_DURATION)
@@ -107,14 +119,20 @@ async function autoRenewSession(alias: string, retryAttempt: number = 0) {
 
     console.log(`Auto-renewal successful for ${alias}, next expiration: ${credentials.expiration.toISOString()}`);
 
-    // 사용자에게 알림 및 UI 업데이트
+    // 사용자에게 알림 및 UI 업데이트 (silent 모드가 아닐 때만)
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.executeJavaScript(`
         if (typeof window.loadProfiles === 'function') {
           window.loadProfiles();
         }
-        window.showStatus('세션이 자동으로 갱신되었습니다: ${alias}', 'success');
       `);
+
+      // silent 모드가 아닐 때만 알림 표시
+      if (!silentMode) {
+        mainWindow.webContents.executeJavaScript(`
+          window.showStatus('세션이 자동으로 갱신되었습니다: ${alias}', 'success');
+        `);
+      }
     }
   } catch (error) {
     console.error(`Auto-renewal failed for ${alias} (attempt ${retryAttempt + 1}):`, error);
@@ -923,4 +941,27 @@ ipcMain.handle('get-auto-backup-settings', async () => {
   } catch (error: any) {
     return { enabled: false, type: 'none' };
   }
+});
+
+// 자동 갱신 설정 관리
+ipcMain.handle('get-auto-refresh-settings', async () => {
+  return configManager.getAutoRefreshSettings();
+});
+
+ipcMain.handle('set-auto-refresh-settings', async (event, settings) => {
+  configManager.setAutoRefreshSettings(settings);
+
+  // 설정 변경 후 모든 활성 세션의 타이머 재스케줄링
+  const activeProfiles = configManager.getActiveProfiles();
+  const profiles = configManager.getProfiles();
+
+  activeProfiles.forEach(alias => {
+    const profile = profiles.find(p => p.alias === alias);
+    if (profile && profile.expiration) {
+      // 기존 타이머 취소 후 새 설정으로 재스케줄링
+      scheduleAutoRenewal(alias, new Date(profile.expiration));
+    }
+  });
+
+  return { success: true };
 });
