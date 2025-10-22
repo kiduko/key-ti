@@ -514,6 +514,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 };
 
+// ========== 설정 서브탭 전환 ==========
+(window as any).switchSettingsSubTab = function(subTabName: string) {
+  // 모든 서브탭과 콘텐츠 비활성화
+  document.querySelectorAll('.settings-subtab').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.settings-subtab-content').forEach(content => content.classList.remove('active'));
+
+  // 선택된 서브탭 활성화
+  const subtabs = document.querySelectorAll('.settings-subtab');
+  if (subTabName === 'autoRefresh') {
+    subtabs[0].classList.add('active');
+    document.getElementById('autoRefreshSettingsTab')?.classList.add('active');
+  } else if (subTabName === 'backup') {
+    subtabs[1].classList.add('active');
+    document.getElementById('backupSettingsTab')?.classList.add('active');
+  }
+};
+
 // ========== 메모장 기능 (멀티 파일) ==========
 interface MemoFile {
   id: string;
