@@ -22,5 +22,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setAutoRefreshSettings: (settings: any) => ipcRenderer.invoke('set-auto-refresh-settings', settings),
   onUpdateAvailable: (callback: (version: string) => void) => {
     ipcRenderer.on('update-available', (_, version) => callback(version));
-  }
+  },
+  // OTP API
+  getOTPAccounts: () => ipcRenderer.invoke('get-otp-accounts'),
+  addOTPAccount: (account: any) => ipcRenderer.invoke('add-otp-account', account),
+  updateOTPAccount: (id: string, account: any) => ipcRenderer.invoke('update-otp-account', id, account),
+  deleteOTPAccount: (id: string) => ipcRenderer.invoke('delete-otp-account', id),
+  generateOTPCode: (account: any) => ipcRenderer.invoke('generate-otp-code', account),
+  showOTPWindow: (account: any) => ipcRenderer.invoke('show-otp-window', account),
+  closeOTPWindow: () => ipcRenderer.invoke('close-otp-window')
 });

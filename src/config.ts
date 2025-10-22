@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
-import { ConfigData, AWSProfile, AutoRefreshSettings } from './types';
+import { ConfigData, AWSProfile, AutoRefreshSettings, OTPAccount } from './types';
 
 export class ConfigManager {
   private config: ConfigData;
@@ -128,6 +128,34 @@ export class ConfigManager {
 
   setAutoRefreshSettings(settings: AutoRefreshSettings): void {
     this.config.autoRefresh = settings;
+    this.saveConfig();
+  }
+
+  // OTP 계정 관리
+  getOTPAccounts(): OTPAccount[] {
+    return this.config.otpAccounts || [];
+  }
+
+  addOTPAccount(account: OTPAccount): void {
+    if (!this.config.otpAccounts) {
+      this.config.otpAccounts = [];
+    }
+    this.config.otpAccounts.push(account);
+    this.saveConfig();
+  }
+
+  updateOTPAccount(id: string, account: OTPAccount): void {
+    if (!this.config.otpAccounts) return;
+    const index = this.config.otpAccounts.findIndex(a => a.id === id);
+    if (index !== -1) {
+      this.config.otpAccounts[index] = account;
+      this.saveConfig();
+    }
+  }
+
+  deleteOTPAccount(id: string): void {
+    if (!this.config.otpAccounts) return;
+    this.config.otpAccounts = this.config.otpAccounts.filter(a => a.id !== id);
     this.saveConfig();
   }
 }

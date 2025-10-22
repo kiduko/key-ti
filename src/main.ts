@@ -6,9 +6,11 @@ import * as os from 'os';
 import { ConfigManager } from './config';
 import { SAMLAuthenticator } from './saml';
 import { AWSSessionManager } from './aws';
-import { AWSProfile } from './types';
+import { AWSProfile, OTPAccount } from './types';
+import { authenticator } from 'otplib';
 
 let mainWindow: BrowserWindow | null = null;
+let otpWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
 let isUpdating = false; // 업데이트 설치 중 플래그
@@ -501,12 +503,14 @@ app.on('before-quit', async (event) => {
             const backupData = await mainWindow.webContents.executeJavaScript(`
               (async () => {
                 const profiles = await window.electronAPI.getProfiles();
+                const otpAccounts = await window.electronAPI.getOTPAccounts();
                 const memos = localStorage.getItem('memos');
                 const links = localStorage.getItem('links');
                 const settings = localStorage.getItem('backupSettings');
 
                 return {
                   profiles: profiles,
+                  otpAccounts: otpAccounts,
                   memos: memos ? JSON.parse(memos) : [],
                   links: links ? JSON.parse(links) : [],
                   backupSettings: settings ? JSON.parse(settings) : null,
@@ -964,4 +968,275 @@ ipcMain.handle('set-auto-refresh-settings', async (event, settings) => {
   });
 
   return { success: true };
+});
+
+// OTP 관련 IPC 핸들러
+ipcMain.handle('get-otp-accounts', async () => {
+  return configManager.getOTPAccounts();
+});
+
+ipcMain.handle('add-otp-account', async (event, account: OTPAccount) => {
+  configManager.addOTPAccount(account);
+  return { success: true };
+});
+
+ipcMain.handle('update-otp-account', async (event, id: string, account: OTPAccount) => {
+  configManager.updateOTPAccount(id, account);
+  return { success: true };
+});
+
+ipcMain.handle('delete-otp-account', async (event, id: string) => {
+  configManager.deleteOTPAccount(id);
+  return { success: true };
+});
+
+// OTP 창 생성 함수
+function createOTPWindow(account: OTPAccount) {
+  // 기존 OTP 창이 있으면 닫기
+  if (otpWindow && !otpWindow.isDestroyed()) {
+    otpWindow.close();
+  }
+
+  // 메인 창 위치 가져오기
+  let x = 100;
+  let y = 100;
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const mainBounds = mainWindow.getBounds();
+    // 메인 창 오른쪽에 약간 떨어진 위치
+    x = mainBounds.x + mainBounds.width + 20;
+    y = mainBounds.y;
+  }
+
+  otpWindow = new BrowserWindow({
+    width: 300,
+    height: 380,
+    x: x,
+    y: y,
+    frame: false,
+    resizable: false,
+    transparent: false,
+    alwaysOnTop: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    },
+    backgroundColor: '#667eea'
+  });
+
+  // HTML 컨텐츠 직접 생성
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body {
+          margin: 0;
+          padding: 30px 20px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          box-sizing: border-box;
+        }
+        .close-btn {
+          position: absolute;
+          top: 15px;
+          right: 15px;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.2);
+          border: none;
+          color: white;
+          font-size: 20px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+        }
+        .close-btn:hover {
+          background: rgba(255, 255, 255, 0.3);
+          transform: rotate(90deg);
+        }
+        .title {
+          font-size: 16px;
+          font-weight: 600;
+          margin-bottom: 8px;
+          opacity: 0.9;
+          text-align: center;
+        }
+        .issuer {
+          font-size: 12px;
+          opacity: 0.7;
+          margin-bottom: 30px;
+          text-align: center;
+        }
+        .code {
+          font-size: 52px;
+          font-weight: 700;
+          letter-spacing: 8px;
+          margin: 30px 0;
+          font-family: Monaco, monospace;
+          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+          cursor: pointer;
+          user-select: none;
+          transition: transform 0.2s;
+        }
+        .code:hover {
+          transform: scale(1.05);
+          opacity: 0.9;
+        }
+        .code:active {
+          transform: scale(0.98);
+        }
+        .timer {
+          font-size: 28px;
+          font-weight: 600;
+          margin-top: 15px;
+          opacity: 0.9;
+        }
+        .hint {
+          font-size: 12px;
+          opacity: 0.7;
+          margin-top: 30px;
+          text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <button class="close-btn" onclick="window.close()">×</button>
+      <div class="title">${account.name}</div>
+      <div class="issuer">${account.issuer || ''}</div>
+      <div class="code" id="code">------</div>
+      <div class="timer" id="timer">30s</div>
+      <div class="hint">클릭하여 복사</div>
+
+      <script>
+        const { ipcRenderer } = require('electron');
+        const account = ${JSON.stringify(account)};
+
+        async function updateOTP() {
+          const result = await ipcRenderer.invoke('generate-otp-code', account);
+          if (result.success) {
+            document.getElementById('code').textContent = result.token || '------';
+            document.getElementById('timer').textContent = result.timeRemaining + 's';
+          }
+        }
+
+        function copyCode() {
+          const code = document.getElementById('code').textContent;
+          if (code && code !== '------') {
+            try {
+              // 임시 textarea 생성 방식으로 복사
+              const textarea = document.createElement('textarea');
+              textarea.value = code;
+              textarea.style.position = 'fixed';
+              textarea.style.opacity = '0';
+              document.body.appendChild(textarea);
+              textarea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textarea);
+
+              // 복사 성공 시각적 피드백
+              const codeEl = document.getElementById('code');
+              if (codeEl) {
+                codeEl.style.opacity = '0.5';
+                setTimeout(() => {
+                  codeEl.style.opacity = '1';
+                }, 200);
+              }
+              console.log('Copied:', code);
+            } catch (err) {
+              console.error('Failed to copy:', err);
+            }
+          }
+        }
+
+        // 클릭 이벤트 리스너 등록
+        document.getElementById('code').addEventListener('click', copyCode);
+
+        // 초기 업데이트 및 1초마다 갱신
+        updateOTP();
+        setInterval(updateOTP, 1000);
+      </script>
+    </body>
+    </html>
+  `;
+
+  otpWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(htmlContent));
+
+  otpWindow.on('closed', () => {
+    otpWindow = null;
+  });
+}
+
+ipcMain.handle('show-otp-window', async (event, account: OTPAccount) => {
+  createOTPWindow(account);
+  return { success: true };
+});
+
+ipcMain.handle('close-otp-window', async () => {
+  if (otpWindow && !otpWindow.isDestroyed()) {
+    otpWindow.close();
+    otpWindow = null;
+  }
+  return { success: true };
+});
+
+ipcMain.handle('generate-otp-code', async (event, account: OTPAccount) => {
+  try {
+    // Secret 키 정규화 (공백 제거 및 대문자 변환)
+    let secret = account.secret.replace(/\s/g, '').toUpperCase();
+
+    // Base32 패딩 추가 (필요한 경우)
+    const paddingNeeded = (8 - (secret.length % 8)) % 8;
+    if (paddingNeeded > 0) {
+      secret = secret + '='.repeat(paddingNeeded);
+    }
+
+    // 옵션 설정
+    const algo = (account.algorithm || 'sha1').toLowerCase();
+
+    authenticator.options = {
+      algorithm: algo as any,
+      digits: account.digits || 6,
+      step: account.period || 30
+    };
+
+    console.log('=== OTP Generation Debug ===');
+    console.log('Original secret:', account.secret);
+    console.log('Normalized secret:', secret);
+    console.log('Algorithm:', algo);
+    console.log('Digits:', account.digits || 6);
+    console.log('Period:', account.period || 30);
+    console.log('Secret length:', secret.length);
+    console.log('Current time:', new Date().toISOString());
+    console.log('Unix timestamp:', Math.floor(Date.now() / 1000));
+
+    const token = authenticator.generate(secret);
+    const timeRemaining = authenticator.timeRemaining();
+
+    console.log('Generated token:', token);
+    console.log('Time remaining:', timeRemaining);
+    console.log('Self-validation:', authenticator.check(token, secret) ? 'PASS' : 'FAIL');
+    console.log('=========================');
+
+    return {
+      success: true,
+      token,
+      timeRemaining
+    };
+  } catch (error) {
+    console.error('Failed to generate OTP:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
 });

@@ -644,9 +644,213 @@
       color: #2c3e50;
       background: white;
     }
+
+    /* OTP 스타일 */
+    .otp-accounts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .otp-account-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      background: white;
+      transition: all 0.2s;
+    }
+
+    .otp-account-item:hover {
+      background: #f9f9f9;
+      border-color: #2c3e50;
+    }
+
+    .otp-account-info {
+      flex: 1;
+    }
+
+    .otp-account-name {
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 4px;
+      color: #2c3e50;
+    }
+
+    .otp-account-issuer {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .otp-code-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .otp-code {
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: #2c3e50;
+      user-select: text;
+      cursor: pointer;
+      padding: 8px 12px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    .otp-code:hover {
+      background: #f0f0f0;
+    }
+
+    .otp-timer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .otp-timer-circle {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 3px solid #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .otp-timer-circle.warning {
+      border-color: #e67e22;
+      color: #e67e22;
+    }
+
+    .otp-timer-circle.critical {
+      border-color: #c0392b;
+      color: #c0392b;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .otp-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* OTP 표시 패널 */
+    #otpDisplayPanel {
+      position: fixed;
+      right: -400px;
+      top: 0;
+      width: 400px;
+      height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      z-index: 10000;
+      transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      color: white;
+    }
+
+    #otpDisplayPanel.visible {
+      right: 0;
+    }
+
+    #otpDisplayPanel .otp-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      opacity: 0.9;
+      text-align: center;
+    }
+
+    #otpDisplayPanel .otp-issuer {
+      font-size: 14px;
+      opacity: 0.7;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    #otpDisplayPanel .otp-code-display {
+      font-size: 72px;
+      font-weight: 700;
+      letter-spacing: 12px;
+      margin: 40px 0;
+      font-family: 'Monaco', 'Courier New', monospace;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      user-select: all;
+      transition: transform 0.2s;
+    }
+
+    #otpDisplayPanel .otp-code-display:hover {
+      transform: scale(1.05);
+    }
+
+    #otpDisplayPanel .otp-timer-display {
+      font-size: 36px;
+      font-weight: 600;
+      margin-top: 20px;
+      opacity: 0.9;
+    }
+
+    #otpDisplayPanel .otp-hint {
+      font-size: 14px;
+      opacity: 0.7;
+      margin-top: 40px;
+      text-align: center;
+    }
+
+    #otpDisplayPanel .otp-close-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    #otpDisplayPanel .otp-close-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: rotate(90deg);
+    }
   </style>
 </head>
 <body>
+  <!-- OTP 표시 패널 -->
+  <div id="otpDisplayPanel">
+    <button class="otp-close-btn" onclick="closeOTPDisplayPanel()">×</button>
+    <div class="otp-title" id="otpDisplayTitle">OTP Code</div>
+    <div class="otp-issuer" id="otpDisplayIssuer"></div>
+    <div class="otp-code-display" id="otpDisplayCode" onclick="copyOTPCodeFromDisplay()">------</div>
+    <div class="otp-timer-display" id="otpDisplayTimer">30s</div>
+    <div class="otp-hint">클릭하여 복사</div>
+  </div>
+
   <!-- Toast 알림 컨테이너 -->
   <div id="toastContainer" class="toast-container"></div>
 
@@ -673,6 +877,7 @@
     <!-- 탭 메뉴 -->
     <div class="tabs">
       <button class="tab active" onclick="switchTab('sessions')">세션 관리</button>
+      <button class="tab" onclick="switchTab('otp')">OTP</button>
       <button class="tab" onclick="switchTab('memo')">메모장</button>
       <button class="tab" onclick="switchTab('links')">링크</button>
       <button class="tab" onclick="switchTab('settings')">설정</button>
@@ -695,6 +900,23 @@
       </div>
 
       <div id="statusMessage"></div>
+    </div>
+
+    <!-- OTP 탭 -->
+    <div id="otpTab" class="tab-content">
+      <div class="section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h2 class="section-title">OTP 계정</h2>
+          <button class="btn-primary" onclick="openAddOTPModal()">+ OTP 추가</button>
+        </div>
+
+        <div id="otpAccountsList" class="otp-accounts-list">
+          <div class="empty-state">
+            <div class="empty-state-icon">🔐</div>
+            <p>등록된 OTP 계정이 없습니다</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 메모장 탭 -->
@@ -879,6 +1101,14 @@
           <input type="text" id="idp" required placeholder="arn:aws:iam::123456789012:saml-provider/YourIDP">
         </div>
 
+        <div class="form-group">
+          <label>연결할 OTP 계정 (선택)</label>
+          <select id="otpAccountId">
+            <option value="">연결 안 함</option>
+          </select>
+          <small style="color: #666; font-size: 12px;">로그인 시 OTP 코드 자동 표시</small>
+        </div>
+
         <div class="modal-footer">
           <button type="button" class="btn-secondary" onclick="closeProfileModal()">취소</button>
           <button type="submit" class="btn-primary">저장</button>
@@ -942,6 +1172,64 @@
       <div class="modal-footer">
         <button type="button" class="btn-secondary" onclick="closeRestoreModal()">취소</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Add OTP Modal -->
+  <div id="otpModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">OTP 계정 추가</div>
+
+      <form id="otpForm">
+        <div class="form-group">
+          <label>계정 이름</label>
+          <input type="text" id="otpName" required placeholder="예: Google, GitHub, AWS">
+        </div>
+
+        <div class="form-group">
+          <label>발급자 (선택)</label>
+          <input type="text" id="otpIssuer" placeholder="예: Google">
+        </div>
+
+        <div class="form-group">
+          <label>Secret Key 또는 OTP URI</label>
+          <input type="text" id="otpSecret" required placeholder="OF2V INST NBFH O3T2... 또는 otpauth://totp/...">
+          <small style="color: #666; font-size: 12px;">
+            • Secret key (공백 포함 가능, 자동으로 제거됨)<br>
+            • otpauth:// URI 붙여넣기 시 모든 필드 자동 입력
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label>알고리즘</label>
+          <select id="otpAlgorithm">
+            <option value="sha1" selected>SHA1 (기본)</option>
+            <option value="sha256">SHA256</option>
+            <option value="sha512">SHA512</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>자릿수</label>
+          <select id="otpDigits">
+            <option value="6" selected>6자리 (기본)</option>
+            <option value="8">8자리</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>갱신 주기 (초)</label>
+          <select id="otpPeriod">
+            <option value="30" selected>30초 (기본)</option>
+            <option value="60">60초</option>
+          </select>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeOTPModal()">취소</button>
+          <button type="submit" class="btn-primary">저장</button>
+        </div>
+      </form>
     </div>
   </div>
 
