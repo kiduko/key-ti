@@ -28,7 +28,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-sts": "^3.0.0",
-    "electron-updater": "^6.6.2"
+    "electron-updater": "^6.6.2",
+    "otplib": "^12.0.1"
   },
   "build": {
     "appId": "com.piongate.key-ti",
@@ -47,7 +48,7 @@
       "target": [
         "zip"
       ],
-      "icon": "build/key-logo.png",
+      "icon": "build/icon.icns",
       "type": "distribution",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,

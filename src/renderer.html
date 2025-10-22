@@ -644,6 +644,109 @@
       color: #2c3e50;
       background: white;
     }
+
+    /* OTP 스타일 */
+    .otp-accounts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .otp-account-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      background: white;
+      transition: all 0.2s;
+    }
+
+    .otp-account-item:hover {
+      background: #f9f9f9;
+      border-color: #2c3e50;
+    }
+
+    .otp-account-info {
+      flex: 1;
+    }
+
+    .otp-account-name {
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 4px;
+      color: #2c3e50;
+    }
+
+    .otp-account-issuer {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .otp-code-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .otp-code {
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: #2c3e50;
+      user-select: text;
+      cursor: pointer;
+      padding: 8px 12px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    .otp-code:hover {
+      background: #f0f0f0;
+    }
+
+    .otp-timer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .otp-timer-circle {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 3px solid #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .otp-timer-circle.warning {
+      border-color: #e67e22;
+      color: #e67e22;
+    }
+
+    .otp-timer-circle.critical {
+      border-color: #c0392b;
+      color: #c0392b;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .otp-actions {
+      display: flex;
+      gap: 8px;
+    }
   </style>
 </head>
 <body>
@@ -673,6 +776,7 @@
     <!-- 탭 메뉴 -->
     <div class="tabs">
       <button class="tab active" onclick="switchTab('sessions')">세션 관리</button>
+      <button class="tab" onclick="switchTab('otp')">OTP</button>
       <button class="tab" onclick="switchTab('memo')">메모장</button>
       <button class="tab" onclick="switchTab('links')">링크</button>
       <button class="tab" onclick="switchTab('settings')">설정</button>
@@ -695,6 +799,23 @@
       </div>
 
       <div id="statusMessage"></div>
+    </div>
+
+    <!-- OTP 탭 -->
+    <div id="otpTab" class="tab-content">
+      <div class="section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h2 class="section-title">OTP 계정</h2>
+          <button class="btn-primary" onclick="openAddOTPModal()">+ OTP 추가</button>
+        </div>
+
+        <div id="otpAccountsList" class="otp-accounts-list">
+          <div class="empty-state">
+            <div class="empty-state-icon">🔐</div>
+            <p>등록된 OTP 계정이 없습니다</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 메모장 탭 -->
@@ -942,6 +1063,61 @@
       <div class="modal-footer">
         <button type="button" class="btn-secondary" onclick="closeRestoreModal()">취소</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Add OTP Modal -->
+  <div id="otpModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">OTP 계정 추가</div>
+
+      <form id="otpForm">
+        <div class="form-group">
+          <label>계정 이름</label>
+          <input type="text" id="otpName" required placeholder="예: Google, GitHub, AWS">
+        </div>
+
+        <div class="form-group">
+          <label>발급자 (선택)</label>
+          <input type="text" id="otpIssuer" placeholder="예: Google">
+        </div>
+
+        <div class="form-group">
+          <label>Secret Key</label>
+          <input type="text" id="otpSecret" required placeholder="Base32 인코딩된 secret key">
+          <small style="color: #666; font-size: 12px;">• QR 코드에서 읽은 secret key 또는 수동으로 입력</small>
+        </div>
+
+        <div class="form-group">
+          <label>알고리즘</label>
+          <select id="otpAlgorithm">
+            <option value="sha1" selected>SHA1 (기본)</option>
+            <option value="sha256">SHA256</option>
+            <option value="sha512">SHA512</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>자릿수</label>
+          <select id="otpDigits">
+            <option value="6" selected>6자리 (기본)</option>
+            <option value="8">8자리</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>갱신 주기 (초)</label>
+          <select id="otpPeriod">
+            <option value="30" selected>30초 (기본)</option>
+            <option value="60">60초</option>
+          </select>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeOTPModal()">취소</button>
+          <button type="submit" class="btn-primary">저장</button>
+        </div>
+      </form>
     </div>
   </div>
 

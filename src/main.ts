@@ -6,7 +6,8 @@ import * as os from 'os';
 import { ConfigManager } from './config';
 import { SAMLAuthenticator } from './saml';
 import { AWSSessionManager } from './aws';
-import { AWSProfile } from './types';
+import { AWSProfile, OTPAccount } from './types';
+import { authenticator } from 'otplib';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -964,4 +965,52 @@ ipcMain.handle('set-auto-refresh-settings', async (event, settings) => {
   });
 
   return { success: true };
+});
+
+// OTP 관련 IPC 핸들러
+ipcMain.handle('get-otp-accounts', async () => {
+  return configManager.getOTPAccounts();
+});
+
+ipcMain.handle('add-otp-account', async (event, account: OTPAccount) => {
+  configManager.addOTPAccount(account);
+  return { success: true };
+});
+
+ipcMain.handle('update-otp-account', async (event, id: string, account: OTPAccount) => {
+  configManager.updateOTPAccount(id, account);
+  return { success: true };
+});
+
+ipcMain.handle('delete-otp-account', async (event, id: string) => {
+  configManager.deleteOTPAccount(id);
+  return { success: true };
+});
+
+ipcMain.handle('generate-otp-code', async (event, account: OTPAccount) => {
+  try {
+    // 옵션 설정 (기본값 사용) - algorithm을 소문자 문자열로 사용
+    const algo = account.algorithm || 'sha1';
+
+    authenticator.options = {
+      algorithm: algo as any, // otplib는 소문자 문자열도 허용
+      digits: account.digits || 6,
+      step: account.period || 30
+    };
+
+    const token = authenticator.generate(account.secret);
+    const timeRemaining = authenticator.timeRemaining();
+
+    return {
+      success: true,
+      token,
+      timeRemaining
+    };
+  } catch (error) {
+    console.error('Failed to generate OTP:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
 });
