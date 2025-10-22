@@ -7,6 +7,7 @@ export interface AWSProfile {
   lastRefresh?: string;
   expiration?: string;
   isActive?: boolean; // 세션이 활성화되어 있는지
+  otpAccountId?: string; // 연결된 OTP 계정 ID
 }
 
 export interface AWSCredentials {

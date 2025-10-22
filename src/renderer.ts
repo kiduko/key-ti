@@ -7,6 +7,7 @@ interface AWSProfile {
   lastRefresh?: string;
   expiration?: string;
   isActive?: boolean;
+  otpAccountId?: string;
 }
 
 interface OTPAccount {
@@ -47,6 +48,8 @@ declare global {
       updateOTPAccount: (id: string, account: OTPAccount) => Promise<{ success: boolean }>;
       deleteOTPAccount: (id: string) => Promise<{ success: boolean }>;
       generateOTPCode: (account: OTPAccount) => Promise<{ success: boolean; token?: string; timeRemaining?: number; error?: string }>;
+      showOTPWindow: (account: OTPAccount) => Promise<{ success: boolean }>;
+      closeOTPWindow: () => Promise<{ success: boolean }>;
     };
   }
 }
@@ -167,7 +170,25 @@ function renderProfiles() {
   startTimer();
 }
 
-function openAddProfileModal() {
+async function populateOTPAccountsDropdown() {
+  const select = document.getElementById('otpAccountId') as HTMLSelectElement;
+  if (!select) return;
+
+  const accounts = await window.electronAPI.getOTPAccounts();
+
+  // 기본 옵션 유지하고 나머지 제거
+  select.innerHTML = '<option value="">연결 안 함</option>';
+
+  // OTP 계정 옵션 추가
+  accounts.forEach(account => {
+    const option = document.createElement('option');
+    option.value = account.id;
+    option.textContent = `${account.name}${account.issuer ? ` (${account.issuer})` : ''}`;
+    select.appendChild(option);
+  });
+}
+
+async function openAddProfileModal() {
   editingAlias = null;
   const modal = document.getElementById('profileModal')!;
   const modalHeader = modal.querySelector('.modal-header')!;
@@ -178,6 +199,9 @@ function openAddProfileModal() {
 
   // alias 필드 활성화
   (document.getElementById('alias') as HTMLInputElement).disabled = false;
+
+  // OTP 계정 목록 채우기
+  await populateOTPAccountsDropdown();
 
   modal.classList.add('active');
 }
@@ -220,6 +244,9 @@ async function editProfile(alias: string) {
 
   const form = document.getElementById('profileForm') as HTMLFormElement;
 
+  // OTP 계정 목록 채우기
+  await populateOTPAccountsDropdown();
+
   // 기존 데이터 채우기
   (document.getElementById('alias') as HTMLInputElement).value = profile.alias;
   (document.getElementById('alias') as HTMLInputElement).disabled = true; // alias는 수정 불가
@@ -227,6 +254,7 @@ async function editProfile(alias: string) {
   (document.getElementById('roleArn') as HTMLInputElement).value = profile.roleArn;
   (document.getElementById('samlUrl') as HTMLInputElement).value = profile.samlUrl;
   (document.getElementById('idp') as HTMLInputElement).value = profile.idp;
+  (document.getElementById('otpAccountId') as HTMLSelectElement).value = profile.otpAccountId || '';
 
   modal.classList.add('active');
 }
@@ -241,10 +269,97 @@ async function deleteProfile(alias: string) {
   showStatus('프로필이 삭제되었습니다', 'success');
 }
 
+// OTP 패널 관련 변수
+let otpPanelInterval: any = null;
+let currentOTPAccount: OTPAccount | null = null;
+
+function showOTPDisplayPanel(account: OTPAccount) {
+  currentOTPAccount = account;
+
+  const panel = document.getElementById('otpDisplayPanel');
+  const title = document.getElementById('otpDisplayTitle');
+  const issuer = document.getElementById('otpDisplayIssuer');
+
+  if (panel && title && issuer) {
+    title.textContent = account.name;
+    issuer.textContent = account.issuer || '';
+
+    panel.classList.add('visible');
+
+    // OTP 코드 업데이트 시작
+    updateOTPDisplay();
+    if (otpPanelInterval) {
+      clearInterval(otpPanelInterval);
+    }
+    otpPanelInterval = setInterval(updateOTPDisplay, 1000);
+  }
+}
+
+async function updateOTPDisplay() {
+  if (!currentOTPAccount) return;
+
+  const result = await window.electronAPI.generateOTPCode(currentOTPAccount);
+  const codeEl = document.getElementById('otpDisplayCode');
+  const timerEl = document.getElementById('otpDisplayTimer');
+
+  if (codeEl && timerEl && result.success) {
+    codeEl.textContent = result.token || '------';
+    timerEl.textContent = `${result.timeRemaining || 0}s`;
+  }
+}
+
+function closeOTPDisplayPanel() {
+  const panel = document.getElementById('otpDisplayPanel');
+  if (panel) {
+    panel.classList.remove('visible');
+  }
+
+  if (otpPanelInterval) {
+    clearInterval(otpPanelInterval);
+    otpPanelInterval = null;
+  }
+
+  currentOTPAccount = null;
+}
+
+async function copyOTPCodeFromDisplay() {
+  const codeEl = document.getElementById('otpDisplayCode');
+  if (codeEl && codeEl.textContent && codeEl.textContent !== '------') {
+    await navigator.clipboard.writeText(codeEl.textContent);
+    showStatus('OTP 코드가 복사되었습니다', 'success');
+  }
+}
+
+(window as any).closeOTPDisplayPanel = closeOTPDisplayPanel;
+(window as any).copyOTPCodeFromDisplay = copyOTPCodeFromDisplay;
+
 async function activateProfile(alias: string) {
+  const profile = profiles.find(p => p.alias === alias);
+
+  let hasOTPWindow = false;
+
+  // OTP 계정이 연결되어 있으면 새 창 표시
+  if (profile && profile.otpAccountId) {
+    const otpAccounts = await window.electronAPI.getOTPAccounts();
+    const otpAccount = otpAccounts.find(a => a.id === profile.otpAccountId);
+
+    if (otpAccount) {
+      await window.electronAPI.showOTPWindow(otpAccount);
+      hasOTPWindow = true;
+
+      // 0.5초 대기 후 로그인 진행
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
   showStatus('세션 활성화 중...', 'info');
 
   const result = await window.electronAPI.activateProfile(alias);
+
+  // 로그인 완료 후 OTP 창 닫기
+  if (hasOTPWindow) {
+    await window.electronAPI.closeOTPWindow();
+  }
 
   if (result.success) {
     await loadProfiles();
@@ -413,12 +528,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       e.preventDefault();
       console.log('Form submitted');
 
+      const otpAccountIdValue = (document.getElementById('otpAccountId') as HTMLSelectElement).value;
+
       const profile: AWSProfile = {
         alias: (document.getElementById('alias') as HTMLInputElement).value,
         profileName: (document.getElementById('profileName') as HTMLInputElement).value,
         roleArn: (document.getElementById('roleArn') as HTMLInputElement).value,
         samlUrl: (document.getElementById('samlUrl') as HTMLInputElement).value,
-        idp: (document.getElementById('idp') as HTMLInputElement).value
+        idp: (document.getElementById('idp') as HTMLInputElement).value,
+        otpAccountId: otpAccountIdValue || undefined
       };
 
       if (editingAlias) {
@@ -506,6 +624,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // ========== 탭 전환 ==========
 (window as any).switchTab = function(tabName: string) {
+  // OTP 탭에서 벗어날 때 OTP 생성 중지
+  if (tabName !== 'otp') {
+    activeOTPId = null;
+    if (otpUpdateInterval) {
+      clearInterval(otpUpdateInterval);
+      otpUpdateInterval = null;
+    }
+  }
+
   // 모든 탭과 탭 콘텐츠 비활성화
   document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -914,12 +1041,14 @@ async function loadBackupSettings() {
 
   // 백업할 데이터 수집
   const profilesData = await window.electronAPI.getProfiles();
+  const otpAccountsData = await window.electronAPI.getOTPAccounts();
   const memosData = localStorage.getItem('memos');
   const linksData = localStorage.getItem('links');
   const settingsData = localStorage.getItem('backupSettings');
 
   const backupData = {
     profiles: profilesData,
+    otpAccounts: otpAccountsData,
     memos: memosData ? JSON.parse(memosData) : [],
     links: linksData ? JSON.parse(linksData) : [],
     backupSettings: settingsData ? JSON.parse(settingsData) : null,
@@ -1071,27 +1200,49 @@ async function restoreFromBackupData(backupData: any) {
     }
   }
 
-  // 3. 메모 복원
+  // 3. OTP 계정 복원
+  if (backupData.otpAccounts && Array.isArray(backupData.otpAccounts)) {
+    // 기존 OTP 계정 모두 삭제
+    const existingOTPAccounts = await window.electronAPI.getOTPAccounts();
+    for (const account of existingOTPAccounts) {
+      try {
+        await window.electronAPI.deleteOTPAccount(account.id);
+      } catch (err) {
+        console.error('Delete OTP account error during restore:', err);
+      }
+    }
+
+    // 백업된 OTP 계정 복원
+    for (const account of backupData.otpAccounts) {
+      try {
+        await window.electronAPI.addOTPAccount(account);
+      } catch (err) {
+        console.error('OTP account restore error:', err);
+      }
+    }
+  }
+
+  // 4. 메모 복원
   if (backupData.memos) {
     localStorage.setItem('memos', JSON.stringify(backupData.memos));
     memos = backupData.memos;
     renderMemoFiles();
   }
 
-  // 4. 링크 복원
+  // 5. 링크 복원
   if (backupData.links) {
     localStorage.setItem('links', JSON.stringify(backupData.links));
     links = backupData.links;
     renderLinks();
   }
 
-  // 5. 백업 설정 복원
+  // 6. 백업 설정 복원
   if (backupData.backupSettings) {
     localStorage.setItem('backupSettings', JSON.stringify(backupData.backupSettings));
     await loadBackupSettings();
   }
 
-  // 6. 프로필 리로드
+  // 7. 프로필 리로드
   await loadProfiles();
 
   showStatus(`백업이 복원되었습니다 (${backupData.timestamp || '시간 정보 없음'})`, 'success');
@@ -1100,18 +1251,17 @@ async function restoreFromBackupData(backupData: any) {
 // ========== OTP 관리 ==========
 let otpAccounts: OTPAccount[] = [];
 let otpUpdateInterval: any = null;
+let activeOTPId: string | null = null;
 
 async function loadOTPAccounts() {
   otpAccounts = await window.electronAPI.getOTPAccounts();
   await renderOTPAccounts();
 
-  // OTP 코드 자동 갱신 시작
+  // 자동 갱신 중지
   if (otpUpdateInterval) {
     clearInterval(otpUpdateInterval);
+    otpUpdateInterval = null;
   }
-  otpUpdateInterval = setInterval(() => {
-    renderOTPAccounts();
-  }, 1000); // 매 초마다 갱신
 }
 
 async function renderOTPAccounts() {
@@ -1129,50 +1279,34 @@ async function renderOTPAccounts() {
   }
 
   const accountsHTML = await Promise.all(otpAccounts.map(async (account) => {
-    const result = await window.electronAPI.generateOTPCode(account);
+    const isActive = activeOTPId === account.id;
+    let codeDisplay = '';
 
-    if (!result.success) {
-      return `
-        <div class="otp-account-item">
-          <div class="otp-account-info">
-            <div class="otp-account-name">${account.name}</div>
-            ${account.issuer ? `<div class="otp-account-issuer">${account.issuer}</div>` : ''}
+    if (isActive) {
+      const result = await window.electronAPI.generateOTPCode(account);
+      if (result.success) {
+        const timeRemaining = result.timeRemaining || 0;
+        codeDisplay = `
+          <div style="display: flex; align-items: center; gap: 12px; margin-right: 12px;">
+            <div class="otp-code" onclick="copyOTPCode('${result.token}')" title="클릭하여 복사" style="font-size: 24px; font-weight: 600; cursor: pointer; font-family: monospace;">
+              ${result.token}
+            </div>
+            <div style="font-size: 18px; color: #666; font-weight: 500;">${timeRemaining}s</div>
           </div>
-          <div class="otp-code-section">
-            <div style="color: #e74c3c;">에러: ${result.error}</div>
-            <button class="btn-danger" onclick="deleteOTPAccount('${account.id}')">삭제</button>
-          </div>
-        </div>
-      `;
-    }
-
-    const timeRemaining = result.timeRemaining || 0;
-    const token = result.token || '------';
-
-    // 타이머 스타일 결정
-    let timerClass = '';
-    if (timeRemaining <= 5) {
-      timerClass = 'critical';
-    } else if (timeRemaining <= 10) {
-      timerClass = 'warning';
+        `;
+      }
     }
 
     return `
-      <div class="otp-account-item">
+      <div class="otp-account-item ${isActive ? 'active' : ''}" onclick="toggleOTPGeneration('${account.id}')" style="cursor: pointer;">
         <div class="otp-account-info">
           <div class="otp-account-name">${account.name}</div>
           ${account.issuer ? `<div class="otp-account-issuer">${account.issuer}</div>` : ''}
         </div>
         <div class="otp-code-section">
-          <div class="otp-code" onclick="copyOTPCode('${token}')" title="클릭하여 복사">
-            ${token}
-          </div>
-          <div class="otp-timer">
-            <div class="otp-timer-circle ${timerClass}">
-              ${timeRemaining}
-            </div>
-          </div>
-          <div class="otp-actions">
+          ${codeDisplay || '<div style="color: #999; font-size: 14px; margin-right: 12px;">클릭하여 코드 생성</div>'}
+          <div class="otp-actions" onclick="event.stopPropagation()">
+            <button class="btn-secondary" onclick="viewOTPDetails('${account.id}')" title="설정 보기">ⓘ</button>
             <button class="btn-danger" onclick="deleteOTPAccount('${account.id}')">삭제</button>
           </div>
         </div>
@@ -1182,6 +1316,45 @@ async function renderOTPAccounts() {
 
   accountsList.innerHTML = accountsHTML.join('');
 }
+
+async function toggleOTPGeneration(id: string) {
+  // 같은 걸 다시 클릭하면 중지
+  if (activeOTPId === id) {
+    activeOTPId = null;
+    if (otpUpdateInterval) {
+      clearInterval(otpUpdateInterval);
+      otpUpdateInterval = null;
+    }
+    await renderOTPAccounts();
+    return;
+  }
+
+  // 다른 걸 클릭하면 기존 것 중지하고 새로 시작
+  activeOTPId = id;
+
+  if (otpUpdateInterval) {
+    clearInterval(otpUpdateInterval);
+  }
+
+  // 즉시 코드 생성 및 복사
+  const account = otpAccounts.find(a => a.id === id);
+  if (account) {
+    const result = await window.electronAPI.generateOTPCode(account);
+    if (result.success && result.token) {
+      await navigator.clipboard.writeText(result.token);
+      showStatus(`OTP 코드가 복사되었습니다: ${result.token}`, 'success');
+    }
+  }
+
+  await renderOTPAccounts();
+
+  // 1초마다 갱신
+  otpUpdateInterval = setInterval(async () => {
+    await renderOTPAccounts();
+  }, 1000);
+}
+
+(window as any).toggleOTPGeneration = toggleOTPGeneration;
 
 (window as any).openAddOTPModal = function() {
   const modal = document.getElementById('otpModal');
@@ -1208,6 +1381,27 @@ async function renderOTPAccounts() {
   });
 };
 
+(window as any).viewOTPDetails = function(id: string) {
+  const account = otpAccounts.find(a => a.id === id);
+  if (!account) return;
+
+  const details = `
+=== OTP 계정 정보 ===
+
+이름: ${account.name}
+발급자: ${account.issuer || '(없음)'}
+
+Secret Key: ${account.secret}
+알고리즘: ${(account.algorithm || 'SHA1').toUpperCase()}
+자릿수: ${account.digits || 6}
+갱신 주기: ${account.period || 30}초
+
+======================
+  `.trim();
+
+  alert(details);
+};
+
 (window as any).deleteOTPAccount = async function(id: string) {
   const account = otpAccounts.find(a => a.id === id);
   if (!account) return;
@@ -1225,10 +1419,80 @@ async function renderOTPAccounts() {
   }
 };
 
+// OTP URI 파싱 함수
+function parseOTPAuthURI(uri: string): Partial<OTPAccount> | null {
+  try {
+    // otpauth:// 형식 확인
+    if (!uri.startsWith('otpauth://totp/')) {
+      return null;
+    }
+
+    const url = new URL(uri);
+    const secret = url.searchParams.get('secret');
+
+    if (!secret) {
+      return null;
+    }
+
+    // 라벨에서 이름 추출 (예: "Google:user@example.com" -> name: "user@example.com", issuer: "Google")
+    const pathParts = decodeURIComponent(url.pathname.substring(1)).split(':');
+    let name = pathParts[pathParts.length - 1];
+    let issuer = url.searchParams.get('issuer') || (pathParts.length > 1 ? pathParts[0] : '');
+
+    return {
+      name,
+      issuer: issuer || undefined,
+      secret: secret.toUpperCase(),
+      algorithm: (url.searchParams.get('algorithm')?.toLowerCase() || 'sha1') as 'sha1' | 'sha256' | 'sha512',
+      digits: parseInt(url.searchParams.get('digits') || '6'),
+      period: parseInt(url.searchParams.get('period') || '30')
+    };
+  } catch (error) {
+    console.error('Failed to parse OTP URI:', error);
+    return null;
+  }
+}
+
 // OTP 폼 제출
 document.addEventListener('DOMContentLoaded', () => {
   const otpForm = document.getElementById('otpForm');
   if (otpForm) {
+    // Secret 필드에 자동 포맷팅 및 URI 파싱 추가
+    const secretInput = document.getElementById('otpSecret') as HTMLInputElement;
+    if (secretInput) {
+      secretInput.addEventListener('input', (e) => {
+        const input = e.target as HTMLInputElement;
+        const value = input.value.trim();
+
+        // otpauth:// URI가 입력된 경우
+        if (value.startsWith('otpauth://totp/')) {
+          const parsed = parseOTPAuthURI(value);
+          if (parsed) {
+            // 모든 필드 자동 채우기
+            (document.getElementById('otpName') as HTMLInputElement).value = parsed.name || '';
+            (document.getElementById('otpIssuer') as HTMLInputElement).value = parsed.issuer || '';
+            (document.getElementById('otpSecret') as HTMLInputElement).value = parsed.secret || '';
+            (document.getElementById('otpAlgorithm') as HTMLSelectElement).value = parsed.algorithm || 'sha1';
+            (document.getElementById('otpDigits') as HTMLSelectElement).value = String(parsed.digits || 6);
+            (document.getElementById('otpPeriod') as HTMLSelectElement).value = String(parsed.period || 30);
+
+            showStatus('OTP URI가 파싱되었습니다', 'success');
+          }
+        }
+      });
+
+      // 붙여넣기 시 공백 자동 제거 및 대문자 변환 (일반 secret key인 경우만)
+      secretInput.addEventListener('paste', (e) => {
+        setTimeout(() => {
+          const value = secretInput.value.trim();
+          // otpauth URI가 아닌 경우만 포맷팅
+          if (!value.startsWith('otpauth://')) {
+            secretInput.value = value.replace(/\s/g, '').toUpperCase();
+          }
+        }, 10);
+      });
+    }
+
     otpForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 

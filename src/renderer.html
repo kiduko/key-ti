@@ -747,9 +747,110 @@
       display: flex;
       gap: 8px;
     }
+
+    /* OTP 표시 패널 */
+    #otpDisplayPanel {
+      position: fixed;
+      right: -400px;
+      top: 0;
+      width: 400px;
+      height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      z-index: 10000;
+      transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      color: white;
+    }
+
+    #otpDisplayPanel.visible {
+      right: 0;
+    }
+
+    #otpDisplayPanel .otp-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      opacity: 0.9;
+      text-align: center;
+    }
+
+    #otpDisplayPanel .otp-issuer {
+      font-size: 14px;
+      opacity: 0.7;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    #otpDisplayPanel .otp-code-display {
+      font-size: 72px;
+      font-weight: 700;
+      letter-spacing: 12px;
+      margin: 40px 0;
+      font-family: 'Monaco', 'Courier New', monospace;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      user-select: all;
+      transition: transform 0.2s;
+    }
+
+    #otpDisplayPanel .otp-code-display:hover {
+      transform: scale(1.05);
+    }
+
+    #otpDisplayPanel .otp-timer-display {
+      font-size: 36px;
+      font-weight: 600;
+      margin-top: 20px;
+      opacity: 0.9;
+    }
+
+    #otpDisplayPanel .otp-hint {
+      font-size: 14px;
+      opacity: 0.7;
+      margin-top: 40px;
+      text-align: center;
+    }
+
+    #otpDisplayPanel .otp-close-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    #otpDisplayPanel .otp-close-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: rotate(90deg);
+    }
   </style>
 </head>
 <body>
+  <!-- OTP 표시 패널 -->
+  <div id="otpDisplayPanel">
+    <button class="otp-close-btn" onclick="closeOTPDisplayPanel()">×</button>
+    <div class="otp-title" id="otpDisplayTitle">OTP Code</div>
+    <div class="otp-issuer" id="otpDisplayIssuer"></div>
+    <div class="otp-code-display" id="otpDisplayCode" onclick="copyOTPCodeFromDisplay()">------</div>
+    <div class="otp-timer-display" id="otpDisplayTimer">30s</div>
+    <div class="otp-hint">클릭하여 복사</div>
+  </div>
+
   <!-- Toast 알림 컨테이너 -->
   <div id="toastContainer" class="toast-container"></div>
 
@@ -1000,6 +1101,14 @@
           <input type="text" id="idp" required placeholder="arn:aws:iam::123456789012:saml-provider/YourIDP">
         </div>
 
+        <div class="form-group">
+          <label>연결할 OTP 계정 (선택)</label>
+          <select id="otpAccountId">
+            <option value="">연결 안 함</option>
+          </select>
+          <small style="color: #666; font-size: 12px;">로그인 시 OTP 코드 자동 표시</small>
+        </div>
+
         <div class="modal-footer">
           <button type="button" class="btn-secondary" onclick="closeProfileModal()">취소</button>
           <button type="submit" class="btn-primary">저장</button>
@@ -1083,9 +1192,12 @@
         </div>
 
         <div class="form-group">
-          <label>Secret Key</label>
-          <input type="text" id="otpSecret" required placeholder="Base32 인코딩된 secret key">
-          <small style="color: #666; font-size: 12px;">• QR 코드에서 읽은 secret key 또는 수동으로 입력</small>
+          <label>Secret Key 또는 OTP URI</label>
+          <input type="text" id="otpSecret" required placeholder="OF2V INST NBFH O3T2... 또는 otpauth://totp/...">
+          <small style="color: #666; font-size: 12px;">
+            • Secret key (공백 포함 가능, 자동으로 제거됨)<br>
+            • otpauth:// URI 붙여넣기 시 모든 필드 자동 입력
+          </small>
         </div>
 
         <div class="form-group">
