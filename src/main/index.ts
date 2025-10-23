@@ -183,7 +183,7 @@ function updateDockIcon() {
     if (app.isPackaged) {
       return path.join(process.resourcesPath, 'key-logo.png');
     } else {
-      return path.join(__dirname, '..', 'build', 'key-logo.png');
+      return path.join(__dirname, '../..', 'build', 'key-logo.png');
     }
   };
 
@@ -210,7 +210,7 @@ function createWindow() {
       return path.join(process.resourcesPath, 'key-logo.png');
     } else {
       // 개발 환경: build/key-logo.png
-      return path.join(__dirname, '..', 'build', 'key-logo.png');
+      return path.join(__dirname, '../..', 'build', 'key-logo.png');
     }
   };
 
@@ -257,7 +257,7 @@ function createTray() {
   // 로고 아이콘 경로 (개발 vs 배포)
   const iconPath = app.isPackaged
     ? path.join(process.resourcesPath, 'key-logo.png')
-    : path.join(__dirname, '..', 'build', 'key-logo.png');
+    : path.join(__dirname, '../..', 'build', 'key-logo.png');
 
   const icon = nativeImage.createFromPath(iconPath);
 
