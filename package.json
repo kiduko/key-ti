@@ -2,10 +2,10 @@
   "name": "key-ti",
   "version": "0.0.17",
   "description": "Key-ti - AWS Session Key Auto Renewal Tool",
-  "main": "dist/main.js",
+  "main": "dist/main/index.js",
   "scripts": {
     "start": "electron .",
-    "build": "tsc && cp src/renderer.html dist/ && cp build/key-logo.png dist/ && sed -i '' '2d' dist/renderer.js",
+    "build": "tsc && cp src/renderer/index.html dist/renderer/ && cp build/key-logo.png dist/ && sed -i '' '2d' dist/renderer/index.js",
     "dev": "npm run build && electron .",
     "watch": "tsc -w",
     "pack": "npm run build && electron-builder --dir",
