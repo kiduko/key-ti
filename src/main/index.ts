@@ -4,8 +4,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { ConfigManager } from './config';
-import { SAMLAuthenticator } from './saml';
-import { AWSSessionManager } from './aws';
+import { SAMLAuthenticator } from '../services/saml';
+import { AWSSessionManager } from '../services/aws';
 import { AWSProfile, OTPAccount } from './types';
 import { authenticator } from 'otplib';
 
@@ -226,7 +226,7 @@ function createWindow() {
     width: 1000,
     height: 700,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
       contextIsolation: true
     },
@@ -238,7 +238,7 @@ function createWindow() {
   // 모든 데스크톱 공간에서 보이도록
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-  mainWindow.loadFile(path.join(__dirname, 'renderer.html'));
+  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
   // DevTools 열기 (필요시 주석 해제)
   // mainWindow.webContents.openDevTools();
