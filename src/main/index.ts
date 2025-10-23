@@ -464,7 +464,7 @@ app.whenReady().then(() => {
   });
 
   app.on('activate', () => {
-    if (mainWindow === null) {
+    if (mainWindow === null || mainWindow.isDestroyed()) {
       createWindow();
     } else {
       mainWindow.show();
@@ -483,23 +483,31 @@ app.on('before-quit', async (event) => {
     return;
   }
 
-  if (!isQuitting) {
-    event.preventDefault();
-    isQuitting = true;
+  // 이미 정리 작업을 완료했으면 그냥 종료
+  if (isQuitting) {
+    return;
+  }
 
-    // 자동 백업 확인 및 실행
-    try {
-      const backupDir = getBackupDir();
-      const settingsPath = path.join(backupDir, 'backup-settings.json');
+  // 첫 quit 요청 시 정리 작업 수행
+  event.preventDefault();
+  isQuitting = true;
 
-      if (fs.existsSync(settingsPath)) {
-        const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  console.log('App quitting - starting cleanup...');
 
-        if (settings.autoBackup && settings.type === 'local') {
-          console.log('Auto backup starting...');
+  // 자동 백업 확인 및 실행
+  try {
+    const backupDir = getBackupDir();
+    const settingsPath = path.join(backupDir, 'backup-settings.json');
 
-          // 윈도우가 있으면 백업 데이터 요청
-          if (mainWindow && !mainWindow.isDestroyed()) {
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+
+      if (settings.autoBackup && settings.type === 'local') {
+        console.log('Auto backup starting...');
+
+        // 윈도우가 있으면 백업 데이터 요청
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+          try {
             const backupData = await mainWindow.webContents.executeJavaScript(`
               (async () => {
                 const profiles = await window.electronAPI.getProfiles();
@@ -524,31 +532,16 @@ app.on('before-quit', async (event) => {
             const filepath = path.join(backupDir, filename);
             fs.writeFileSync(filepath, JSON.stringify(backupData, null, 2), 'utf8');
             console.log('Auto backup completed:', filename);
+          } catch (backupError) {
+            console.error('Auto backup executeJavaScript failed:', backupError);
           }
         }
       }
-    } catch (error) {
-      console.error('Auto backup failed:', error);
     }
-
-    // 모든 활성 세션 로그아웃 처리
-    const activeProfiles = configManager.getActiveProfiles();
-    const profiles = configManager.getProfiles();
-
-    activeProfiles.forEach(alias => {
-      const profile = profiles.find(p => p.alias === alias);
-      if (profile) {
-        console.log(`Main: Cleaning up session for ${alias} on app quit`);
-        awsManager.removeCredentialsFromAWSConfig(profile.profileName);
-      }
-    });
-
-    // 백업 및 로그아웃 완료 후 앱 종료
-    app.quit();
-    return;
+  } catch (error) {
+    console.error('Auto backup failed:', error);
   }
 
-  // 이미 isQuitting이 true인 경우 (두 번째 호출)
   // 모든 활성 세션 로그아웃 처리
   const activeProfiles = configManager.getActiveProfiles();
   const profiles = configManager.getProfiles();
@@ -565,6 +558,39 @@ app.on('before-quit', async (event) => {
   activeProfiles.forEach(alias => {
     configManager.removeActiveProfile(alias);
   });
+
+  // 모든 타이머 정리
+  renewalTimers.forEach((timer, alias) => {
+    clearTimeout(timer);
+    console.log(`Cleared renewal timer for ${alias}`);
+  });
+  renewalTimers.clear();
+
+  // Tray 정리
+  if (tray && !tray.isDestroyed()) {
+    tray.destroy();
+    tray = null;
+  }
+
+  // Dock 배지 제거
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setBadge('');
+  }
+
+  // 모든 윈도우 닫기
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.destroy();
+    mainWindow = null;
+  }
+  if (otpWindow && !otpWindow.isDestroyed()) {
+    otpWindow.destroy();
+    otpWindow = null;
+  }
+
+  console.log('Cleanup completed - exiting app...');
+
+  // 정리 완료 후 프로세스 종료
+  app.exit(0);
 });
 
 // IPC Handlers
