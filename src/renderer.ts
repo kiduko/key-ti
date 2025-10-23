@@ -58,6 +58,7 @@ let profiles: AWSProfile[] = [];
 let activeProfile: string | undefined;
 let timerInterval: any = null;
 let editingAlias: string | null = null;
+let isLoginInProgress: boolean = false;
 
 // 시간 계산 및 포맷팅 헬퍼 함수
 function calculateTimeRemaining(expirationStr: string): {
@@ -168,6 +169,25 @@ function renderProfiles() {
 
   // 실시간 타이머 시작
   startTimer();
+}
+
+function setProfilesListDisabled(disabled: boolean) {
+  const profilesList = document.getElementById('profilesList')!;
+  const buttons = profilesList.querySelectorAll('button');
+
+  if (disabled) {
+    profilesList.style.opacity = '0.5';
+    profilesList.style.pointerEvents = 'none';
+    buttons.forEach(btn => {
+      btn.disabled = true;
+    });
+  } else {
+    profilesList.style.opacity = '1';
+    profilesList.style.pointerEvents = 'auto';
+    buttons.forEach(btn => {
+      btn.disabled = false;
+    });
+  }
 }
 
 async function populateOTPAccountsDropdown() {
@@ -334,6 +354,10 @@ async function copyOTPCodeFromDisplay() {
 (window as any).copyOTPCodeFromDisplay = copyOTPCodeFromDisplay;
 
 async function activateProfile(alias: string) {
+  if (isLoginInProgress) {
+    return;
+  }
+
   const profile = profiles.find(p => p.alias === alias);
 
   let hasOTPWindow = false;
@@ -352,20 +376,27 @@ async function activateProfile(alias: string) {
     }
   }
 
+  isLoginInProgress = true;
+  setProfilesListDisabled(true);
   showStatus('세션 활성화 중...', 'info');
 
-  const result = await window.electronAPI.activateProfile(alias);
+  try {
+    const result = await window.electronAPI.activateProfile(alias);
 
-  // 로그인 완료 후 OTP 창 닫기
-  if (hasOTPWindow) {
-    await window.electronAPI.closeOTPWindow();
-  }
+    // 로그인 완료 후 OTP 창 닫기
+    if (hasOTPWindow) {
+      await window.electronAPI.closeOTPWindow();
+    }
 
-  if (result.success) {
-    await loadProfiles();
-    showStatus(result.message, 'success');
-  } else {
-    showStatus(result.message, 'error');
+    if (result.success) {
+      await loadProfiles();
+      showStatus(result.message, 'success');
+    } else {
+      showStatus(result.message, 'error');
+    }
+  } finally {
+    isLoginInProgress = false;
+    setProfilesListDisabled(false);
   }
 }
 
