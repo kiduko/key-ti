@@ -56,20 +56,20 @@ cd Key-ti-x.x.x
 
 ### 환경 설정
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 ### 세션 시간 조절 (테스트용)
 ```bash
 export KEY_TI_SESSION_DURATION=300  # 5분
-npm start
+pnpm start
 ```
 
 ### 빌드
 ```bash
-npm run build        # TypeScript 컴파일
-npm run dist         # 배포 패키지 생성
+pnpm run build        # TypeScript 컴파일
+pnpm run dist         # 배포 패키지 생성
 ```
 
 ### 문서

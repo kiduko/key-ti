@@ -25,15 +25,15 @@ echo "🚀 Starting release process for version $VERSION"
 
 # 1. 버전 업데이트
 echo "📝 Updating version in package.json..."
-npm version $VERSION --no-git-tag-version
+pnpm version $VERSION --no-git-tag-version
 
 # 2. 빌드
 echo "🔨 Building application..."
-npm run build
+pnpm run build
 
 # 3. 배포 패키지 생성
 echo "📦 Creating distribution packages..."
-npm run dist
+pnpm run dist
 
 # 4. 변경사항 생성
 echo "📝 Generating changelog..."
@@ -110,7 +110,7 @@ gh release create "v$VERSION" \
 
 # 6. 버전 커밋
 echo "💾 Committing version change..."
-git add package.json package-lock.json
+git add package.json pnpm-lock.yaml
 git commit -m "chore: bump version to $VERSION"
 git push
 

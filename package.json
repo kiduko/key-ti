@@ -6,10 +6,10 @@
   "scripts": {
     "start": "electron .",
     "build": "tsc && cp src/renderer/index.html dist/renderer/ && cp build/key-logo.png dist/ && sed -i '' '2d' dist/renderer/index.js",
-    "dev": "npm run build && electron .",
+    "dev": "pnpm run build && electron .",
     "watch": "tsc -w",
-    "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder && npm run post-dist",
+    "pack": "pnpm run build && electron-builder --dir",
+    "dist": "pnpm run build && electron-builder && pnpm run post-dist",
     "post-dist": "./scripts/post-dist.sh"
   },
   "keywords": [

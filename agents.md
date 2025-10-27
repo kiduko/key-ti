@@ -214,15 +214,15 @@ ipcMain.handle('deactivate-profile', async (event, alias) => {
 
 ### 로컬 개발
 ```bash
-npm install
-npm run build
-npm start
+pnpm install
+pnpm run build
+pnpm start
 ```
 
 ### 테스트 (짧은 세션)
 ```bash
 export KEY_TI_SESSION_DURATION=60  # 1분
-npm start
+pnpm start
 ```
 
 ### 로컬 릴리즈
@@ -298,7 +298,7 @@ console.log(configManager.getActiveProfiles()); // 활성 프로필
 ```bash
 # 1분 세션으로 설정
 export KEY_TI_SESSION_DURATION=60
-npm start
+pnpm start
 
 # 세션 활성화 후 47초 후(13초 전) 자동 갱신 시작
 # 총 3회까지 재시도 확인
@@ -332,7 +332,7 @@ chore: 빌드/설정 변경
 ```
 
 ### PR 체크리스트
-- [ ] 빌드 성공 (`npm run build`)
+- [ ] 빌드 성공 (`pnpm run build`)
 - [ ] 기능 테스트 완료
 - [ ] 관련 이슈에 연결
 - [ ] 주요 변경사항 문서화
@@ -552,10 +552,10 @@ gh issue comment {issue_number} --body "## ✅ 일부 구현 완료
 #### 작업 전 테스트
 ```bash
 # 빌드 확인
-npm run build
+pnpm run build
 
 # 앱 실행
-npm start
+pnpm start
 
 # 기존 기능 동작 확인
 ```
@@ -563,8 +563,8 @@ npm start
 #### 작업 후 테스트
 ```bash
 # 새 기능 테스트
-npm run build
-npm start
+pnpm run build
+pnpm start
 
 # 체크리스트
 - [ ] 빌드 성공
@@ -580,7 +580,7 @@ npm start
 
 - [ ] 관련 이슈 번호가 커밋 메시지에 포함됨 (`Closes #X`)
 - [ ] 브랜치명이 규칙에 맞음 (`feature/X-description`)
-- [ ] 빌드 성공 (`npm run build`)
+- [ ] 빌드 성공 (`pnpm run build`)
 - [ ] 기능 테스트 완료
 - [ ] 코드에 불필요한 console.log 없음
 - [ ] TypeScript 에러 없음
@@ -678,8 +678,8 @@ git pull origin main
 git checkout -b feature/13-auto-renewal-settings-ui
 
 # 4. 코드 작성 및 테스트
-npm run build
-npm start
+pnpm run build
+pnpm start
 # ... 테스트 ...
 
 # 5. 커밋
