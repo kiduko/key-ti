@@ -50,7 +50,10 @@ declare global {
       generateOTPCode: (account: OTPAccount) => Promise<{ success: boolean; token?: string; timeRemaining?: number; error?: string }>;
       showOTPWindow: (account: OTPAccount) => Promise<{ success: boolean }>;
       closeOTPWindow: () => Promise<{ success: boolean }>;
+      exportToText: () => Promise<string>;
+      importFromText: (text: string) => Promise<{ success: boolean; message: string; count: number }>;
     };
+    showFirstRunImportDialog?: () => void;
   }
 }
 
@@ -705,6 +708,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else if (subTabName === 'backup') {
     subtabs[1].classList.add('active');
     document.getElementById('backupSettingsTab')?.classList.add('active');
+  } else if (subTabName === 'importExport') {
+    subtabs[2].classList.add('active');
+    document.getElementById('importExportSettingsTab')?.classList.add('active');
   }
 };
 
@@ -1450,6 +1456,114 @@ Secret Key: ${account.secret}
   }
 };
 
+// 텍스트로 Export
+(window as any).exportToText = async function() {
+  try {
+    const text = await window.electronAPI.exportToText();
+
+    // 클립보드에 복사
+    await navigator.clipboard.writeText(text);
+
+    // import/export 페이지에 있는 경우 status 메시지 표시
+    const importExportStatus = document.getElementById('importExportStatus');
+    if (importExportStatus) {
+      importExportStatus.innerHTML = '<div class="status success">프로필 데이터가 클립보드에 복사되었습니다</div>';
+      setTimeout(() => {
+        importExportStatus.innerHTML = '';
+      }, 3000);
+    } else {
+      showStatus('프로필 데이터가 클립보드에 복사되었습니다', 'success');
+    }
+  } catch (error) {
+    console.error('Export failed:', error);
+    showStatus('Export 실패', 'error');
+  }
+};
+
+// Import from TextArea
+(window as any).importFromTextArea = async function() {
+  const textarea = document.getElementById('importTextArea') as HTMLTextAreaElement;
+  const statusDiv = document.getElementById('importExportStatus');
+
+  if (!textarea || !statusDiv) return;
+
+  const text = textarea.value.trim();
+
+  if (!text) {
+    statusDiv.innerHTML = '<div class="status error">데이터를 입력하세요</div>';
+    setTimeout(() => {
+      statusDiv.innerHTML = '';
+    }, 3000);
+    return;
+  }
+
+  try {
+    const result = await window.electronAPI.importFromText(text);
+
+    if (result.success) {
+      statusDiv.innerHTML = `<div class="status success">${result.message}</div>`;
+      textarea.value = '';
+      await loadProfiles();
+
+      setTimeout(() => {
+        statusDiv.innerHTML = '';
+      }, 5000);
+    } else {
+      statusDiv.innerHTML = `<div class="status error">${result.message}</div>`;
+      setTimeout(() => {
+        statusDiv.innerHTML = '';
+      }, 5000);
+    }
+  } catch (error) {
+    console.error('Import failed:', error);
+    statusDiv.innerHTML = '<div class="status error">Import 실패</div>';
+    setTimeout(() => {
+      statusDiv.innerHTML = '';
+    }, 3000);
+  }
+};
+
+// Clear Import TextArea
+(window as any).clearImportTextArea = function() {
+  const textarea = document.getElementById('importTextArea') as HTMLTextAreaElement;
+  if (textarea) {
+    textarea.value = '';
+  }
+};
+
+// Import Modal 열기 (첫 실행 시 사용)
+(window as any).openImportFromTextModal = function() {
+  const modal = document.getElementById('importTextModal');
+  if (modal) {
+    modal.classList.add('active');
+  }
+};
+
+// Import Modal 닫기
+(window as any).closeImportTextModal = function() {
+  const modal = document.getElementById('importTextModal');
+  if (modal) {
+    modal.classList.remove('active');
+    const textarea = document.getElementById('importTextData') as HTMLTextAreaElement;
+    if (textarea) {
+      textarea.value = '';
+    }
+  }
+};
+
+// 첫 실행 시 Import 다이얼로그
+window.showFirstRunImportDialog = function() {
+  const shouldImport = confirm(
+    'Key-ti를 처음 사용하시나요?\n\n' +
+    '이전에 Export한 프로필 데이터가 있다면 지금 Import할 수 있습니다.\n\n' +
+    'Import하시겠습니까?'
+  );
+
+  if (shouldImport) {
+    (window as any).openImportFromTextModal();
+  }
+};
+
 // OTP URI 파싱 함수
 function parseOTPAuthURI(uri: string): Partial<OTPAccount> | null {
   try {
@@ -1484,8 +1598,38 @@ function parseOTPAuthURI(uri: string): Partial<OTPAccount> | null {
   }
 }
 
-// OTP 폼 제출
+// Import 폼 제출
 document.addEventListener('DOMContentLoaded', () => {
+  const importTextForm = document.getElementById('importTextForm');
+  if (importTextForm) {
+    importTextForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const textarea = document.getElementById('importTextData') as HTMLTextAreaElement;
+      const text = textarea.value.trim();
+
+      if (!text) {
+        showStatus('데이터를 입력하세요', 'error');
+        return;
+      }
+
+      try {
+        const result = await window.electronAPI.importFromText(text);
+
+        if (result.success) {
+          showStatus(result.message, 'success');
+          (window as any).closeImportTextModal();
+          await loadProfiles();
+        } else {
+          showStatus(result.message, 'error');
+        }
+      } catch (error) {
+        console.error('Import failed:', error);
+        showStatus('Import 실패', 'error');
+      }
+    });
+  }
+
   const otpForm = document.getElementById('otpForm');
   if (otpForm) {
     // Secret 필드에 자동 포맷팅 및 URI 파싱 추가

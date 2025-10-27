@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
-import { ConfigData, AWSProfile, AutoRefreshSettings, OTPAccount } from './types';
+import { ConfigData, AWSProfile, AutoRefreshSettings, OTPAccount } from '../shared/types';
 
 export class ConfigManager {
   private config: ConfigData;
@@ -157,5 +157,55 @@ export class ConfigManager {
     if (!this.config.otpAccounts) return;
     this.config.otpAccounts = this.config.otpAccounts.filter(a => a.id !== id);
     this.saveConfig();
+  }
+
+  // 텍스트로 Export (OTP 제외)
+  exportToText(): string {
+    const profiles = this.config.profiles.map(profile => {
+      const { otpAccountId, isActive, lastRefresh, expiration, ...rest } = profile;
+      return rest;
+    });
+    return JSON.stringify(profiles, null, 2);
+  }
+
+  // 텍스트에서 Import
+  importFromText(text: string): { success: boolean; message: string; count: number } {
+    try {
+      const profiles = JSON.parse(text) as AWSProfile[];
+
+      // 유효성 검증
+      if (!Array.isArray(profiles)) {
+        return { success: false, message: '올바른 프로필 배열이 아닙니다', count: 0 };
+      }
+
+      for (const profile of profiles) {
+        if (!profile.alias || !profile.profileName || !profile.roleArn || !profile.samlUrl || !profile.idp) {
+          return { success: false, message: '필수 필드가 누락된 프로필이 있습니다', count: 0 };
+        }
+      }
+
+      // 기존 프로필에 추가 (중복 체크)
+      let addedCount = 0;
+      for (const profile of profiles) {
+        const exists = this.config.profiles.some(p => p.alias === profile.alias);
+        if (!exists) {
+          // isActive, lastRefresh, expiration 초기화
+          this.config.profiles.push({
+            ...profile,
+            isActive: false,
+            lastRefresh: undefined,
+            expiration: undefined,
+            otpAccountId: undefined
+          });
+          addedCount++;
+        }
+      }
+
+      this.saveConfig();
+      return { success: true, message: `${addedCount}개의 프로필을 불러왔습니다`, count: addedCount };
+    } catch (error) {
+      console.error('Failed to import from text:', error);
+      return { success: false, message: '잘못된 형식입니다', count: 0 };
+    }
   }
 }

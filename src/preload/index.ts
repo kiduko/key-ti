@@ -30,5 +30,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteOTPAccount: (id: string) => ipcRenderer.invoke('delete-otp-account', id),
   generateOTPCode: (account: any) => ipcRenderer.invoke('generate-otp-code', account),
   showOTPWindow: (account: any) => ipcRenderer.invoke('show-otp-window', account),
-  closeOTPWindow: () => ipcRenderer.invoke('close-otp-window')
+  closeOTPWindow: () => ipcRenderer.invoke('close-otp-window'),
+  // Text Export/Import API
+  exportToText: () => ipcRenderer.invoke('export-to-text'),
+  importFromText: (text: string) => ipcRenderer.invoke('import-from-text', text)
 });
