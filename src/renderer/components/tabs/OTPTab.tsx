@@ -1,26 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { OTPAccount } from '../../types';
-import { showToast } from '../ToastContainer';
+import { useOTP } from '../../hooks/useOTP';
+import { getOTPTimerClass } from '../../utils/time';
+import PageHeader from '../common/PageHeader';
+import EmptyState from '../common/EmptyState';
 import OTPModal from '../modals/OTPModal';
 
 const OTPTab: React.FC = () => {
-  const [otpAccounts, setOTPAccounts] = useState<OTPAccount[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<OTPAccount | null>(null);
-  const [otpCodes, setOTPCodes] = useState<{ [key: string]: { token: string; timeRemaining: number } }>({});
 
-  const loadOTPAccounts = async () => {
-    try {
-      const data = await window.electronAPI.getOTPAccounts();
-      setOTPAccounts(data);
-    } catch (error) {
-      console.error('Failed to load OTP accounts:', error);
-    }
-  };
-
-  useEffect(() => {
-    loadOTPAccounts();
-  }, []);
+  const {
+    otpAccounts,
+    otpCodes,
+    loadOTPAccounts,
+    generateOTP,
+    copyOTP,
+    showOTPWindow,
+    deleteOTP,
+  } = useOTP();
 
   const handleAddOTP = () => {
     setEditingAccount(null);
@@ -32,85 +30,31 @@ const OTPTab: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteOTP = async (id: string) => {
-    const account = otpAccounts.find(a => a.id === id);
-    if (!account) return;
-
-    if (!confirm(`"${account.name}" OTP 계정을 삭제하시겠습니까?`)) return;
-
-    try {
-      await window.electronAPI.deleteOTPAccount(id);
-      showToast('OTP 계정이 삭제되었습니다', 'success');
-      await loadOTPAccounts();
-    } catch (error) {
-      showToast('OTP 계정 삭제 실패', 'error');
-    }
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingAccount(null);
   };
 
-  const handleGenerateOTP = async (account: OTPAccount) => {
-    try {
-      const result = await window.electronAPI.generateOTPCode(account);
-      if (result.success && result.token && result.timeRemaining !== undefined) {
-        setOTPCodes(prev => ({
-          ...prev,
-          [account.id]: { token: result.token!, timeRemaining: result.timeRemaining! }
-        }));
-
-        const interval = setInterval(async () => {
-          const newResult = await window.electronAPI.generateOTPCode(account);
-          if (newResult.success && newResult.token && newResult.timeRemaining !== undefined) {
-            setOTPCodes(prev => ({
-              ...prev,
-              [account.id]: { token: newResult.token!, timeRemaining: newResult.timeRemaining! }
-            }));
-          }
-        }, 1000);
-
-        setTimeout(() => clearInterval(interval), 30000);
-      } else {
-        showToast('OTP 생성 실패: ' + (result.error || '알 수 없는 오류'), 'error');
-      }
-    } catch (error) {
-      showToast('OTP 생성 실패', 'error');
-    }
-  };
-
-  const handleCopyOTP = (token: string) => {
-    navigator.clipboard.writeText(token).then(() => {
-      showToast('OTP 코드가 복사되었습니다', 'success');
-    }).catch(() => {
-      showToast('복사 실패', 'error');
-    });
-  };
-
-  const handleShowOTPWindow = async (account: OTPAccount) => {
-    try {
-      await window.electronAPI.showOTPWindow(account);
-    } catch (error) {
-      showToast('OTP 창 열기 실패', 'error');
-    }
+  const handleSaveModal = async () => {
+    await loadOTPAccounts();
+    handleCloseModal();
   };
 
   return (
     <div className="section">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h2 className="section-title">OTP 계정</h2>
-        <button className="btn-primary" onClick={handleAddOTP}>
-          + OTP 추가
-        </button>
-      </div>
+      <PageHeader
+        title="OTP 계정"
+        action={{ label: '+ OTP 추가', onClick: handleAddOTP }}
+      />
 
       <div className="otp-accounts-list">
         {otpAccounts.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">🔐</div>
-            <p>등록된 OTP 계정이 없습니다</p>
-          </div>
+          <EmptyState icon="🔐" message="등록된 OTP 계정이 없습니다" />
         ) : (
           otpAccounts.map((account) => {
             const otpCode = otpCodes[account.id];
             const timeRemaining = otpCode?.timeRemaining || 0;
-            const timerClass = timeRemaining < 5 ? 'critical' : timeRemaining < 10 ? 'warning' : '';
+            const timerClass = getOTPTimerClass(timeRemaining);
 
             return (
               <div key={account.id} className="otp-account-item">
@@ -130,7 +74,7 @@ const OTPTab: React.FC = () => {
                     </button>
                     <button
                       className="btn-delete"
-                      onClick={() => handleDeleteOTP(account.id)}
+                      onClick={() => deleteOTP(account.id)}
                     >
                       ✗
                     </button>
@@ -141,7 +85,7 @@ const OTPTab: React.FC = () => {
                   <div className="otp-code-container">
                     <div
                       className="otp-code"
-                      onClick={() => handleCopyOTP(otpCode.token)}
+                      onClick={() => copyOTP(otpCode.token)}
                       title="클릭하여 복사"
                     >
                       {otpCode.token}
@@ -156,13 +100,13 @@ const OTPTab: React.FC = () => {
                   <div className="otp-buttons">
                     <button
                       className="otp-btn-generate"
-                      onClick={() => handleGenerateOTP(account)}
+                      onClick={() => generateOTP(account)}
                     >
                       OTP 생성
                     </button>
                     <button
                       className="otp-btn-window"
-                      onClick={() => handleShowOTPWindow(account)}
+                      onClick={() => showOTPWindow(account)}
                     >
                       큰 창
                     </button>
@@ -177,15 +121,8 @@ const OTPTab: React.FC = () => {
       {isModalOpen && (
         <OTPModal
           account={editingAccount}
-          onClose={() => {
-            setIsModalOpen(false);
-            setEditingAccount(null);
-          }}
-          onSave={async () => {
-            await loadOTPAccounts();
-            setIsModalOpen(false);
-            setEditingAccount(null);
-          }}
+          onClose={handleCloseModal}
+          onSave={handleSaveModal}
         />
       )}
     </div>
