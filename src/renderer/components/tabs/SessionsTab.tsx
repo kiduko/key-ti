@@ -173,8 +173,7 @@ const SessionsTab: React.FC = () => {
                   {profile.profileName} | {profile.roleArn}
                   {profile.expiration && timeRemaining[profile.alias] && (
                     <>
-                      {' '}|{' '}
-                      <span className={timeRemaining[profile.alias].className}>
+                      {' '}| <span className={timeRemaining[profile.alias].className}>
                         {timeRemaining[profile.alias].text}
                       </span>
                     </>

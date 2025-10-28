@@ -113,19 +113,17 @@ const OTPTab: React.FC = () => {
             const timerClass = timeRemaining < 5 ? 'critical' : timeRemaining < 10 ? 'warning' : '';
 
             return (
-              <div key={account.id} className="otp-account-item" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {/* 상단: 계정 정보 */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div key={account.id} className="otp-account-item">
+                <div className="otp-account-header">
                   <div className="otp-account-info">
                     <div className="otp-account-name">{account.name}</div>
                     {account.issuer && (
                       <div className="otp-account-issuer">{account.issuer}</div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: '4px' }}>
+                  <div className="otp-account-actions">
                     <button
                       className="btn-secondary"
-                      style={{ padding: '4px 12px', fontSize: '12px' }}
                       onClick={() => handleEditOTP(account)}
                     >
                       수정
@@ -139,34 +137,31 @@ const OTPTab: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 하단: OTP 코드 또는 생성 버튼 */}
                 {otpCode ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f5f7fa', padding: '16px', borderRadius: '8px' }}>
+                  <div className="otp-code-container">
                     <div
                       className="otp-code"
                       onClick={() => handleCopyOTP(otpCode.token)}
                       title="클릭하여 복사"
-                      style={{ margin: 0, padding: '8px 16px', background: 'white', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s' }}
                     >
                       {otpCode.token}
                     </div>
                     <div className="otp-timer">
                       <div className={`otp-timer-circle ${timerClass}`}>
-                        {timeRemaining}s
+                        {timeRemaining}
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div className="otp-buttons">
                     <button
-                      className="btn-primary"
-                      style={{ flex: 1 }}
+                      className="otp-btn-generate"
                       onClick={() => handleGenerateOTP(account)}
                     >
                       OTP 생성
                     </button>
                     <button
-                      className="btn-secondary"
+                      className="otp-btn-window"
                       onClick={() => handleShowOTPWindow(account)}
                     >
                       큰 창
