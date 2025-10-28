@@ -4,6 +4,7 @@
   "description": "Key-ti - AWS Session Key Auto Renewal Tool",
   "main": "dist/main/index.js",
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "start": "electron .",
     "build": "pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
     "build:main": "tsc --project tsconfig.main.json",
