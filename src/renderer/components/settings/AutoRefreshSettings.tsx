@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AutoRefreshSettings as AutoRefreshSettingsType } from '../../types';
-import { showToast } from '../ToastContainer';
+import { AutoRefreshSettings as AutoRefreshSettingsType } from '../../types.js';
+import { showToast } from '../ToastContainer.js';
 
 const AutoRefreshSettings: React.FC = () => {
   const [settings, setSettings] = useState<AutoRefreshSettingsType>({

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { OTPAccount } from '../../types';
-import { useOTP } from '../../hooks/useOTP';
-import { getOTPTimerClass } from '../../utils/time';
-import PageHeader from '../common/PageHeader';
-import EmptyState from '../common/EmptyState';
-import OTPModal from '../modals/OTPModal';
+import { OTPAccount } from '../../types.js';
+import { useOTP } from '../../hooks/useOTP.js';
+import { getOTPTimerClass } from '../../utils/time.js';
+import PageHeader from '../common/PageHeader.js';
+import EmptyState from '../common/EmptyState.js';
+import OTPModal from '../modals/OTPModal.js';
 
 const OTPTab: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);

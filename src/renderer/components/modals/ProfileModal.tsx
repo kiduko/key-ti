@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AWSProfile, OTPAccount } from '../../types';
-import { showToast } from '../ToastContainer';
+import { AWSProfile, OTPAccount } from '../../types.js';
+import { showToast } from '../ToastContainer.js';
 
 interface ProfileModalProps {
   profile: AWSProfile | null;

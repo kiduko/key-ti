@@ -1,13 +1,14 @@
 // IPC 핸들러 등록
 import { ipcMain, app, shell } from 'electron';
-import { ConfigManager } from './config';
-import { SAMLAuthenticator } from '../services/saml';
-import { AWSSessionManager } from '../services/aws';
-import { WindowManager } from './window-manager';
-import { AutoRenewalManager } from './auto-renewal-manager';
-import { BackupManager } from './backup-manager';
-import { AWSProfile, OTPAccount } from '../shared/types';
-import { authenticator } from 'otplib';
+import { ConfigManager } from './config.js';
+import { SAMLAuthenticator } from '../services/saml.js';
+import { AWSSessionManager } from '../services/aws.js';
+import { WindowManager } from './window-manager.js';
+import { AutoRenewalManager } from './auto-renewal-manager.js';
+import { BackupManager } from './backup-manager.js';
+import { AWSProfile, OTPAccount } from '../shared/types.js';
+import otplib from 'otplib';
+const { authenticator } = otplib;
 
 export function registerIPCHandlers(
   configManager: ConfigManager,

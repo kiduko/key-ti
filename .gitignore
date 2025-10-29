@@ -4,3 +4,7 @@ release/
 .DS_Store
 *.log
 .env
+
+# Test coverage
+coverage/
+.vitest/

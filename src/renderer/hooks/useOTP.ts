@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { OTPAccount } from '../types';
-import { showToast } from '../components/ToastContainer';
+import { OTPAccount } from '../types.js';
+import { showToast } from '../components/ToastContainer.js';
 
 interface OTPCode {
   token: string;

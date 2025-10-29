@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { OTPAccount } from '../../types';
-import { showToast } from '../ToastContainer';
+import { OTPAccount } from '../../types.js';
+import { showToast } from '../ToastContainer.js';
 
 interface OTPModalProps {
   account: OTPAccount | null;

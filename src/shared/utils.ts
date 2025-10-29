@@ -2,6 +2,12 @@
 import { app } from 'electron';
 import * as path from 'path';
 import * as os from 'os';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// ESM에서 __dirname 대체
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * 아이콘 경로를 환경에 맞게 반환

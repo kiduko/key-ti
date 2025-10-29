@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import AutoRefreshSettings from '../settings/AutoRefreshSettings';
-import BackupSettings from '../settings/BackupSettings';
-import ImportExportSettings from '../settings/ImportExportSettings';
+import AutoRefreshSettings from '../settings/AutoRefreshSettings.js';
+import BackupSettings from '../settings/BackupSettings.js';
+import ImportExportSettings from '../settings/ImportExportSettings.js';
 
 type SettingsSubTab = 'autoRefresh' | 'backup' | 'importExport';
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { MemoFile } from '../../types';
-import { showToast } from '../ToastContainer';
+import { MemoFile } from '../../types.js';
+import { showToast } from '../ToastContainer.js';
 
 const MemoTab: React.FC = () => {
   const [memos, setMemos] = useState<MemoFile[]>([]);

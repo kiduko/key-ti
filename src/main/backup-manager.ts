@@ -1,7 +1,7 @@
 // 백업 관리
 import * as fs from 'fs';
 import * as path from 'path';
-import { getBackupDir } from '../shared/utils';
+import { getBackupDir } from '../shared/utils.js';
 
 export class BackupManager {
   getBackupPath(): string {

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import Header from './Header';
-import Tabs from './Tabs';
-import SessionsTab from './tabs/SessionsTab';
-import OTPTab from './tabs/OTPTab';
-import MemoTab from './tabs/MemoTab';
-import LinksTab from './tabs/LinksTab';
-import SettingsTab from './tabs/SettingsTab';
-import ToastContainer from './ToastContainer';
+import Header from './Header.js';
+import Tabs from './Tabs.js';
+import SessionsTab from './tabs/SessionsTab.js';
+import OTPTab from './tabs/OTPTab.js';
+import MemoTab from './tabs/MemoTab.js';
+import LinksTab from './tabs/LinksTab.js';
+import SettingsTab from './tabs/SettingsTab.js';
+import ToastContainer from './ToastContainer.js';
 
 type TabType = 'sessions' | 'otp' | 'memo' | 'links' | 'settings';
 

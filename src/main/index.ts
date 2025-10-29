@@ -1,16 +1,17 @@
 import { app, BrowserWindow, nativeImage, ipcMain } from 'electron';
-import { autoUpdater } from 'electron-updater';
+import pkg from 'electron-updater';
+const { autoUpdater } = pkg;
 import * as path from 'path';
 import * as fs from 'fs';
-import { ConfigManager } from './config';
-import { SAMLAuthenticator } from '../services/saml';
-import { AWSSessionManager } from '../services/aws';
-import { WindowManager } from './window-manager';
-import { TrayManager } from './tray-manager';
-import { AutoRenewalManager } from './auto-renewal-manager';
-import { BackupManager } from './backup-manager';
-import { registerIPCHandlers } from './ipc-handlers';
-import { getIconPath, getBackupDir } from '../shared/utils';
+import { ConfigManager } from './config.js';
+import { SAMLAuthenticator } from '../services/saml.js';
+import { AWSSessionManager } from '../services/aws.js';
+import { WindowManager } from './window-manager.js';
+import { TrayManager } from './tray-manager.js';
+import { AutoRenewalManager } from './auto-renewal-manager.js';
+import { BackupManager } from './backup-manager.js';
+import { registerIPCHandlers } from './ipc-handlers.js';
+import { getIconPath, getBackupDir } from '../shared/utils.js';
 
 // 전역 변수
 let isQuitting = false;

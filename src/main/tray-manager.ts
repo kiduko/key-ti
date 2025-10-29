@@ -1,7 +1,7 @@
 // Tray 아이콘 및 메뉴 관리
 import { Tray, Menu, nativeImage, app } from 'electron';
-import { getIconPath } from '../shared/utils';
-import { AWSProfile } from '../shared/types';
+import { getIconPath } from '../shared/utils.js';
+import { AWSProfile } from '../shared/types.js';
 
 export class TrayManager {
   private tray: Tray | null = null;

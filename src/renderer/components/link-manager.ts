@@ -1,6 +1,6 @@
 // 링크 관리 컴포넌트
-import { Link } from '../../shared/types';
-import { showStatus } from '../utils/toast';
+import { Link } from '../../shared/types.js';
+import { showStatus } from '../utils/toast.js';
 
 let links: Link[] = [];
 

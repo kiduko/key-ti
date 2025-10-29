@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as https from 'https';
-import { AWSCredentials } from '../shared/types';
+import { AWSCredentials } from '../shared/types.js';
 
 export class AWSSessionManager {
   private stsClient: STSClient;

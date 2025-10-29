@@ -1,8 +1,14 @@
 // 윈도우 생성 및 관리
-import { BrowserWindow, nativeImage } from 'electron';
+import { BrowserWindow, nativeImage, app } from 'electron';
 import * as path from 'path';
-import { getIconPath } from '../shared/utils';
-import { OTPAccount } from '../shared/types';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import { getIconPath } from '../shared/utils.js';
+import { OTPAccount } from '../shared/types.js';
+
+// ESM에서 __dirname 대체
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export class WindowManager {
   private mainWindow: BrowserWindow | null = null;

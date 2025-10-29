@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { AWSProfile } from '../../types';
-import { useProfile } from '../../hooks/useProfile';
-import PageHeader from '../common/PageHeader';
-import EmptyState from '../common/EmptyState';
-import ProfileModal from '../modals/ProfileModal';
+import { AWSProfile } from '../../types.js';
+import { useProfile } from '../../hooks/useProfile.js';
+import PageHeader from '../common/PageHeader.js';
+import EmptyState from '../common/EmptyState.js';
+import ProfileModal from '../modals/ProfileModal.js';
 
 const SessionsTab: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);

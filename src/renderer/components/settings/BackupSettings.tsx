@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BackupSettings as BackupSettingsType } from '../../types';
-import { showToast } from '../ToastContainer';
+import { BackupSettings as BackupSettingsType } from '../../types.js';
+import { showToast } from '../ToastContainer.js';
 
 const BackupSettings: React.FC = () => {
   const [settings, setSettings] = useState<BackupSettingsType>({

@@ -1,8 +1,8 @@
 // 세션 자동 갱신 관리
 import { BrowserWindow } from 'electron';
-import { ConfigManager } from './config';
-import { SAMLAuthenticator } from '../services/saml';
-import { AWSSessionManager } from '../services/aws';
+import { ConfigManager } from './config.js';
+import { SAMLAuthenticator } from '../services/saml.js';
+import { AWSSessionManager } from '../services/aws.js';
 
 export class AutoRenewalManager {
   private renewalTimers = new Map<string, NodeJS.Timeout>();

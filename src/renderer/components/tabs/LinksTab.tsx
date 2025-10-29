@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from '../../types';
-import { showToast } from '../ToastContainer';
+import { Link } from '../../types.js';
+import { showToast } from '../ToastContainer.js';
 
 const LinksTab: React.FC = () => {
   const [links, setLinks] = useState<Link[]>([]);

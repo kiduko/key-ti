@@ -1,7 +1,7 @@
 // 프로필 관리 UI 컴포넌트
-import { AWSProfile } from '../../shared/types';
-import { calculateTimeRemaining } from '../../shared/utils';
-import { showStatus } from '../utils/toast';
+import { AWSProfile } from '../../shared/types.js';
+import { calculateTimeRemaining } from '../../shared/utils.js';
+import { showStatus } from '../utils/toast.js';
 
 let profiles: AWSProfile[] = [];
 let editingAlias: string | null = null;

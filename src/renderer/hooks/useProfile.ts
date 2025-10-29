@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AWSProfile, OTPAccount } from '../types';
-import { showToast } from '../components/ToastContainer';
-import { calculateTimeRemaining, TimeRemaining } from '../utils/time';
+import { AWSProfile, OTPAccount } from '../types.js';
+import { showToast } from '../components/ToastContainer.js';
+import { calculateTimeRemaining, TimeRemaining } from '../utils/time.js';
 
 interface UseProfileReturn {
   profiles: AWSProfile[];

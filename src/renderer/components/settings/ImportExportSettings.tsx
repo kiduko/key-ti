@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { showToast } from '../ToastContainer';
+import { showToast } from '../ToastContainer.js';
 
 const ImportExportSettings: React.FC = () => {
   const [importText, setImportText] = useState('');

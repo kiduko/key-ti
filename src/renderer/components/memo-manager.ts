@@ -1,6 +1,6 @@
 // 메모장 관리 컴포넌트
-import { MemoFile } from '../../shared/types';
-import { showStatus } from '../utils/toast';
+import { MemoFile } from '../../shared/types.js';
+import { showStatus } from '../utils/toast.js';
 
 let memos: MemoFile[] = [];
 let currentMemoId: string | null = null;
