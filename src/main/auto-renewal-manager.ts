@@ -21,14 +21,16 @@ export class AutoRenewalManager {
   schedule(alias: string, expirationDate: Date): void {
     const autoRefreshSettings = this.configManager.getAutoRefreshSettings();
 
-    if (!autoRefreshSettings.enabled) {
-      console.log(`Auto-renewal disabled for ${alias}, skipping scheduling`);
-      return;
-    }
-
+    // 기존 타이머가 있으면 먼저 취소
     const existingTimer = this.renewalTimers.get(alias);
     if (existingTimer) {
       clearTimeout(existingTimer);
+      this.renewalTimers.delete(alias);
+    }
+
+    if (!autoRefreshSettings.enabled) {
+      console.log(`Auto-renewal disabled for ${alias}, cancelled existing timer`);
+      return;
     }
 
     const now = new Date().getTime();

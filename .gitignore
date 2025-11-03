@@ -8,3 +8,6 @@ release/
 # Test coverage
 coverage/
 .vitest/
+
+# Unused directories
+src-tauri/

@@ -288,12 +288,16 @@ export function registerIPCHandlers(
     const activeProfiles = configManager.getActiveProfiles();
     const profiles = configManager.getProfiles();
 
+    // 모든 활성 프로필에 대해 스케줄 재설정
+    // schedule() 메서드가 enabled 상태를 체크하여 타이머를 취소하거나 설정함
     activeProfiles.forEach(alias => {
       const profile = profiles.find(p => p.alias === alias);
       if (profile && profile.expiration) {
         autoRenewalManager.schedule(alias, new Date(profile.expiration));
       }
     });
+
+    console.log(`Auto-refresh settings updated: enabled=${settings.enabled}, timing=${settings.timing}, silent=${settings.silent}`);
 
     return { success: true };
   });

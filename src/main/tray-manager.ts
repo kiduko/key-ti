@@ -99,12 +99,15 @@ export class TrayManager {
     const iconPath = getIconPath();
     const dockIcon = nativeImage.createFromPath(iconPath);
 
+    // Dock 아이콘 크기를 더 크게 조정 (128x128 또는 256x256)
+    const resizedDockIcon = dockIcon.resize({ width: 256, height: 256 });
+
     if (hasActiveSessions) {
       app.dock.setBadge(activeProfiles.length.toString());
     } else {
       app.dock.setBadge('');
     }
 
-    app.dock.setIcon(dockIcon);
+    app.dock.setIcon(resizedDockIcon);
   }
 }

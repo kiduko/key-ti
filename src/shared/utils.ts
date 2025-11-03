@@ -2,12 +2,6 @@
 import { app } from 'electron';
 import * as path from 'path';
 import * as os from 'os';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-// ESM에서 __dirname 대체
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 /**
  * 아이콘 경로를 환경에 맞게 반환
@@ -16,7 +10,8 @@ export function getIconPath(filename: string = 'key-logo.png'): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, filename);
   } else {
-    return path.join(__dirname, '../..', 'build', filename);
+    // 개발 환경에서는 프로젝트 루트의 build 디렉토리 사용
+    return path.join(process.cwd(), 'build', filename);
   }
 }
 
