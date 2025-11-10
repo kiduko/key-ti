@@ -1,6 +1,6 @@
 import React from 'react';
 
-type TabType = 'sessions' | 'otp' | 'memo' | 'links' | 'settings';
+type TabType = 'sessions' | 'otp' | 'memo' | 'links' | 'usage' | 'settings';
 
 interface TabsProps {
   activeTab: TabType;
@@ -13,6 +13,7 @@ const Tabs: React.FC<TabsProps> = ({ activeTab, onTabChange }) => {
     { id: 'otp' as TabType, label: 'OTP' },
     { id: 'memo' as TabType, label: '메모장' },
     { id: 'links' as TabType, label: '링크' },
+    { id: 'usage' as TabType, label: '사용량' },
     { id: 'settings' as TabType, label: '설정' },
   ];
 

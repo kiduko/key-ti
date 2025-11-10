@@ -75,6 +75,53 @@ export interface ElectronAPI {
   closeOTPWindow: () => Promise<{ success: boolean }>;
   exportToText: () => Promise<string>;
   importFromText: (text: string) => Promise<{ success: boolean; message: string; count: number }>;
+  getClaudeUsageStats: () => Promise<{
+    sessions: Array<{
+      timestamp: string;
+      modelId: string;
+      usage: {
+        inputTokens: number;
+        outputTokens: number;
+        cacheCreationTokens: number;
+        cacheReadTokens: number;
+      };
+      cost: number;
+      totalTokens: number;
+    }>;
+    dailyUsages: Array<{
+      date: string;
+      modelId: string;
+      sessions: any[];
+      totalInputTokens: number;
+      totalOutputTokens: number;
+      totalCacheCreationTokens: number;
+      totalCacheReadTokens: number;
+      totalTokens: number;
+      totalCost: number;
+    }>;
+    monthlyUsages: Array<{
+      month: string;
+      modelId: string;
+      dailyUsages: any[];
+      totalInputTokens: number;
+      totalOutputTokens: number;
+      totalCacheCreationTokens: number;
+      totalCacheReadTokens: number;
+      totalTokens: number;
+      totalCost: number;
+    }>;
+    modelUsages: Array<{
+      modelId: string;
+      sessionCount: number;
+      totalInputTokens: number;
+      totalOutputTokens: number;
+      totalCacheCreationTokens: number;
+      totalCacheReadTokens: number;
+      totalTokens: number;
+      totalCost: number;
+    }>;
+    totalSessions: number;
+  }>;
 }
 
 declare global {

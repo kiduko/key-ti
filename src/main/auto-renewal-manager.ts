@@ -38,19 +38,25 @@ export class AutoRenewalManager {
     const minutesBeforeExpiration = expiration - (autoRefreshSettings.timing * 60 * 1000);
     const timeUntilRenewal = minutesBeforeExpiration - now;
 
-    console.log(`Auto-renewal scheduled for ${alias}: ${new Date(minutesBeforeExpiration).toLocaleString()} (${autoRefreshSettings.timing}분 전)`);
+    console.log(`[AutoRenewal] Scheduling for ${alias}:`);
+    console.log(`  - Current time: ${new Date(now).toLocaleString()}`);
+    console.log(`  - Expiration: ${new Date(expiration).toLocaleString()}`);
+    console.log(`  - Renewal time (${autoRefreshSettings.timing}분 전): ${new Date(minutesBeforeExpiration).toLocaleString()}`);
+    console.log(`  - Time until renewal: ${Math.floor(timeUntilRenewal / 1000 / 60)} minutes (${timeUntilRenewal}ms)`);
 
     if (timeUntilRenewal <= 0) {
-      console.log(`Session for ${alias} expires soon, renewing immediately`);
+      console.log(`[AutoRenewal] Session for ${alias} expires soon, renewing immediately`);
       this.renew(alias);
       return;
     }
 
     const timer = setTimeout(() => {
+      console.log(`[AutoRenewal] Timer triggered for ${alias}`);
       this.renew(alias);
     }, timeUntilRenewal);
 
     this.renewalTimers.set(alias, timer);
+    console.log(`[AutoRenewal] Timer set successfully for ${alias}`);
   }
 
   /**
@@ -60,27 +66,27 @@ export class AutoRenewalManager {
     const maxRetries = 3;
     const retryDelayMs = 10000;
 
-    console.log(`Auto-renewing session for ${alias} (attempt ${retryAttempt + 1}/${maxRetries})`);
+    console.log(`[AutoRenewal] Starting renewal for ${alias} (attempt ${retryAttempt + 1}/${maxRetries}) at ${new Date().toLocaleString()}`);
 
     try {
       const profiles = this.configManager.getProfiles();
       const profile = profiles.find(p => p.alias === alias);
 
       if (!profile) {
-        console.log(`Profile ${alias} not found, skipping auto-renewal`);
+        console.log(`[AutoRenewal] Profile ${alias} not found, skipping auto-renewal`);
         return;
       }
 
       const activeProfiles = this.configManager.getActiveProfiles();
       if (!activeProfiles.includes(alias)) {
-        console.log(`Profile ${alias} is not active, skipping auto-renewal`);
+        console.log(`[AutoRenewal] Profile ${alias} is not active, skipping auto-renewal`);
         return;
       }
 
       const autoRefreshSettings = this.configManager.getAutoRefreshSettings();
       const silentMode = autoRefreshSettings.silent;
 
-      console.log(`Opening browser for auto-renewal: ${alias} (silent: ${silentMode})`);
+      console.log(`[AutoRenewal] Opening browser for ${alias} (silent: ${silentMode})`);
       const samlAssertion = await this.samlAuth.authenticate(profile.samlUrl, { silent: silentMode });
 
       const sessionDuration = process.env.KEY_TI_SESSION_DURATION
@@ -106,19 +112,21 @@ export class AutoRenewalManager {
       this.onUpdate();
       this.renewalRetryCount.delete(alias);
 
-      console.log(`Auto-renewal successful for ${alias}, next expiration: ${credentials.expiration.toISOString()}`);
+      console.log(`[AutoRenewal] SUCCESS for ${alias}`);
+      console.log(`  - New expiration: ${credentials.expiration.toISOString()}`);
+      console.log(`  - Next renewal scheduled`);
 
       this.notifyRenderer(alias, silentMode);
     } catch (error) {
-      console.error(`Auto-renewal failed for ${alias} (attempt ${retryAttempt + 1}):`, error);
+      console.error(`[AutoRenewal] FAILED for ${alias} (attempt ${retryAttempt + 1}):`, error);
 
       if (retryAttempt < maxRetries - 1) {
-        console.log(`Retrying auto-renewal for ${alias} in ${retryDelayMs / 1000} seconds...`);
+        console.log(`[AutoRenewal] Retrying ${alias} in ${retryDelayMs / 1000} seconds...`);
         setTimeout(() => {
           this.renew(alias, retryAttempt + 1);
         }, retryDelayMs);
       } else {
-        console.error(`Auto-renewal failed for ${alias} after ${maxRetries} attempts`);
+        console.error(`[AutoRenewal] GAVE UP on ${alias} after ${maxRetries} attempts`);
         this.renewalRetryCount.delete(alias);
         this.notifyRendererError(alias);
       }

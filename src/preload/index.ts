@@ -33,5 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeOTPWindow: () => ipcRenderer.invoke('close-otp-window'),
   // Text Export/Import API
   exportToText: () => ipcRenderer.invoke('export-to-text'),
-  importFromText: (text: string) => ipcRenderer.invoke('import-from-text', text)
+  importFromText: (text: string) => ipcRenderer.invoke('import-from-text', text),
+  // Claude Usage API
+  getClaudeUsageStats: () => ipcRenderer.invoke('get-claude-usage-stats')
 });

@@ -8,6 +8,7 @@ import { AutoRenewalManager } from './auto-renewal-manager.js';
 import { BackupManager } from './backup-manager.js';
 import { AWSProfile, OTPAccount } from '../shared/types.js';
 import otplib from 'otplib';
+import * as claudeUsage from '../services/claude-usage.js';
 const { authenticator } = otplib;
 
 export function registerIPCHandlers(
@@ -373,5 +374,20 @@ export function registerIPCHandlers(
 
   ipcMain.handle('import-from-text', async (event, text: string) => {
     return configManager.importFromText(text);
+  });
+
+  // Claude Code 사용량 분석
+  ipcMain.handle('get-claude-usage-stats', async () => {
+    try {
+      return claudeUsage.getUsageStats();
+    } catch (error) {
+      console.error('Failed to get Claude usage stats:', error);
+      return {
+        sessions: [],
+        dailyUsages: [],
+        monthlyUsages: [],
+        totalSessions: 0,
+      };
+    }
   });
 }

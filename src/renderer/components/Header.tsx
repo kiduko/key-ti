@@ -7,7 +7,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ appVersion }) => {
   return (
     <header>
-      <img src="../key-logo.png" alt="Logo" className="logo" />
+      <img src="key-logo.png" alt="Logo" className="logo" />
       <div className="header-text">
         <h1>
           Key-ti{' '}

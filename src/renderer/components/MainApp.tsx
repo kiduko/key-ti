@@ -5,10 +5,11 @@ import SessionsTab from './tabs/SessionsTab.js';
 import OTPTab from './tabs/OTPTab.js';
 import MemoTab from './tabs/MemoTab.js';
 import LinksTab from './tabs/LinksTab.js';
+import UsageTab from './tabs/UsageTab.js';
 import SettingsTab from './tabs/SettingsTab.js';
 import ToastContainer from './ToastContainer.js';
 
-type TabType = 'sessions' | 'otp' | 'memo' | 'links' | 'settings';
+type TabType = 'sessions' | 'otp' | 'memo' | 'links' | 'usage' | 'settings';
 
 const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('sessions');
@@ -32,6 +33,7 @@ const MainApp: React.FC = () => {
         {activeTab === 'otp' && <OTPTab />}
         {activeTab === 'memo' && <MemoTab />}
         {activeTab === 'links' && <LinksTab />}
+        {activeTab === 'usage' && <UsageTab />}
         {activeTab === 'settings' && <SettingsTab />}
       </div>
 

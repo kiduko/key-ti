@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { app } from 'electron';
+import electron from 'electron';
+const { app } = electron;
 import { ConfigData, AWSProfile, AutoRefreshSettings, OTPAccount } from '../shared/types.js';
 
 export class ConfigManager {
