@@ -279,7 +279,9 @@ export function getDailyUsage(sessions: SessionData[]): DailyUsage[] {
   const dailyModelMap = new Map<string, SessionData[]>(); // key: "date|modelId"
 
   for (const session of sessions) {
-    const date = new Date(session.timestamp).toISOString().split('T')[0];
+    // 로컬 시간대 기준으로 날짜 계산 (ccusage와 동일)
+    const d = new Date(session.timestamp);
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const key = `${date}|${session.modelId}`;
 
     if (!dailyModelMap.has(key)) {
