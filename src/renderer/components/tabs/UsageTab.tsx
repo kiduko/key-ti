@@ -382,7 +382,7 @@ const UsageTab: React.FC = () => {
   if (!stats || stats.totalSessions === 0) {
     return (
       <div className="tab-content active">
-        <PageHeader title="Claude 사용량 분석" />
+        <PageHeader title="Claude Code 사용량" />
         <div className="empty-state">
           <p>Claude Code 사용 데이터가 없습니다.</p>
           <p className="hint">~/.claude/projects/ 경로에 세션 데이터가 저장됩니다.</p>
@@ -393,7 +393,7 @@ const UsageTab: React.FC = () => {
 
   return (
     <div className="tab-content active">
-      <PageHeader title="Claude 사용량 분석" />
+      <PageHeader title="Claude Code 사용량" />
 
       <div className="usage-controls">
         <button
