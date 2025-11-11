@@ -6,12 +6,21 @@ import * as os from 'os';
 /**
  * 아이콘 경로를 환경에 맞게 반환
  */
-export function getIconPath(filename: string = 'key-logo.png'): string {
+export function getIconPath(filename?: string): string {
+  // macOS는 .icns, 다른 플랫폼은 .png 사용
+  const defaultFilename = process.platform === 'darwin' ? 'icon.icns' : 'key-logo.png';
+  const iconFile = filename || defaultFilename;
+
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, filename);
+    // 패키지된 환경: .icns는 app/Contents/Resources에, .png는 resources에
+    if (iconFile.endsWith('.icns')) {
+      // macOS .app 번들 구조: Key-ti.app/Contents/Resources/icon.icns
+      return path.join(process.resourcesPath, iconFile);
+    }
+    return path.join(process.resourcesPath, iconFile);
   } else {
     // 개발 환경에서는 프로젝트 루트의 build 디렉토리 사용
-    return path.join(process.cwd(), 'build', filename);
+    return path.join(process.cwd(), 'build', iconFile);
   }
 }
 

@@ -92,15 +92,43 @@ const UsageTab: React.FC = () => {
     // stats가 변경되면 퍼센트 계산
     if (stats && nextResetTime && nextWeeklyReset) {
       const now = new Date();
-      const sessionStart = new Date(nextResetTime.getTime() - 5 * 60 * 60 * 1000);
+      const resetHours = [0, 5, 10, 15, 20];
 
-      const currentSessionSessions = stats.sessions
-        .filter(s => {
+      // 최근 5시간 내 세션 찾기
+      const fiveHoursAgo = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+      const recentSessions = stats.sessions.filter(s => {
+        const sessionTime = new Date(s.timestamp);
+        return sessionTime >= fiveHoursAgo && sessionTime <= now;
+      });
+
+      let currentSessionTokens = 0;
+      let currentSessionSessions: typeof stats.sessions = [];
+
+      if (recentSessions.length > 0) {
+        // 가장 오래된 세션의 시간 찾기
+        const firstSessionTime = new Date(recentSessions[0].timestamp);
+        const firstSessionHourUTC = firstSessionTime.getUTCHours();
+
+        // 첫 세션이 속한 5시간 블록 찾기
+        let sessionBlockStart = 0;
+        for (let i = resetHours.length - 1; i >= 0; i--) {
+          if (firstSessionHourUTC >= resetHours[i]) {
+            sessionBlockStart = resetHours[i];
+            break;
+          }
+        }
+
+        const sessionStart = new Date(firstSessionTime);
+        sessionStart.setUTCHours(sessionBlockStart, 0, 0, 0);
+
+        // 해당 블록 시작부터 현재까지의 모든 세션
+        currentSessionSessions = stats.sessions.filter(s => {
           const sessionTime = new Date(s.timestamp);
           return sessionTime >= sessionStart && sessionTime <= now;
         });
 
-      const currentSessionTokens = currentSessionSessions.reduce((sum, s) => sum + s.totalTokens, 0);
+        currentSessionTokens = currentSessionSessions.reduce((sum, s) => sum + s.totalTokens, 0);
+      }
 
       const weekStart = new Date(nextWeeklyReset.getTime() - 7 * 24 * 60 * 60 * 1000);
       const weeklySessions = stats.sessions
