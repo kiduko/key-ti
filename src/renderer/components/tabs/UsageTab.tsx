@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from '../common/PageHeader.js';
+import { findCurrentSessionChain, calculateNextWeeklyReset, formatTimeUntilReset, formatLongDuration } from '../../../shared/session-utils.js';
 
 interface TokenUsage {
   inputTokens: number;
@@ -77,7 +78,9 @@ const UsageTab: React.FC = () => {
 
   useEffect(() => {
     loadUsageStats();
-    calculateNextWeeklyReset();
+    // 공통 유틸리티 함수 사용
+    const weeklyReset = calculateNextWeeklyReset();
+    setNextWeeklyReset(weeklyReset);
 
     // 1분마다 리셋 타이머 업데이트
     const timer = setInterval(() => {
@@ -99,36 +102,8 @@ const UsageTab: React.FC = () => {
     if (stats && nextResetTime && nextWeeklyReset) {
       const now = new Date();
 
-      // 역순으로 세션을 탐색하여 현재 시간과 연결된 세션 체인 찾기
-      let currentChainSessions: typeof stats.sessions = [];
-
-      for (let i = stats.sessions.length - 1; i >= 0; i--) {
-        const session = stats.sessions[i];
-        const sessionTime = new Date(session.timestamp);
-
-        // 미래 세션은 무시
-        if (sessionTime > now) {
-          continue;
-        }
-
-        if (currentChainSessions.length === 0) {
-          // 첫 세션 추가 (현재 시간 이전의 가장 최근 세션)
-          currentChainSessions.unshift(session);
-        } else {
-          // 이전 세션과의 갭 계산
-          const nextSession = currentChainSessions[0];
-          const nextTime = new Date(nextSession.timestamp);
-          const gap = (nextTime.getTime() - sessionTime.getTime()) / (1000 * 60 * 60);
-
-          // 5시간 미만 갭이면 체인에 추가
-          if (gap < 5) {
-            currentChainSessions.unshift(session);
-          } else {
-            // 5시간 이상 갭이면 체인 중단
-            break;
-          }
-        }
-      }
+      // 공통 유틸리티 함수를 사용하여 세션 체인 찾기
+      const currentChainSessions = findCurrentSessionChain(stats.sessions, now);
 
       const currentSessionTokens = currentChainSessions.reduce((sum, s) => sum + s.totalTokens, 0);
 
@@ -265,38 +240,6 @@ const UsageTab: React.FC = () => {
     }
   };
 
-  const calculateNextWeeklyReset = () => {
-    const now = new Date();
-
-    // 다음 월요일 UTC 06:00 (한국 시간 오후 3시) 찾기
-    let nextMonday = new Date(now);
-
-    // 현재 요일 (0=일요일, 1=월요일, ...)
-    const currentDay = now.getUTCDay();
-    const currentHour = now.getUTCHours();
-
-    // 월요일까지 남은 일수 계산
-    let daysUntilMonday;
-    if (currentDay === 1 && currentHour < 6) {
-      // 월요일이고 아직 06:00 UTC 전이면 오늘
-      daysUntilMonday = 0;
-    } else if (currentDay === 0) {
-      // 일요일이면 내일
-      daysUntilMonday = 1;
-    } else if (currentDay === 1) {
-      // 월요일이고 이미 06:00 UTC 지났으면 다음주
-      daysUntilMonday = 7;
-    } else {
-      // 다음 월요일까지 남은 일수 (화요일=6일, 수요일=5일, ...)
-      daysUntilMonday = (8 - currentDay) % 7;
-    }
-
-    nextMonday.setUTCDate(now.getUTCDate() + daysUntilMonday);
-    nextMonday.setUTCHours(6, 0, 0, 0);
-
-    setNextWeeklyReset(nextMonday);
-  };
-
   const updateTimeUntilReset = () => {
     if (!nextResetTime) {
       calculateNextReset();
@@ -320,7 +263,8 @@ const UsageTab: React.FC = () => {
 
   const updateTimeUntilWeeklyReset = () => {
     if (!nextWeeklyReset) {
-      calculateNextWeeklyReset();
+      const weeklyReset = calculateNextWeeklyReset();
+      setNextWeeklyReset(weeklyReset);
       return;
     }
 
@@ -329,21 +273,14 @@ const UsageTab: React.FC = () => {
 
     if (diff <= 0) {
       // 리셋 시간이 지났으면 다시 계산
-      calculateNextWeeklyReset();
+      const weeklyReset = calculateNextWeeklyReset();
+      setNextWeeklyReset(weeklyReset);
       return;
     }
 
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-    if (days > 0) {
-      setTimeUntilWeeklyReset(`${days}일 ${hours}시간 후`);
-    } else if (hours > 0) {
-      setTimeUntilWeeklyReset(`${hours}시간 ${minutes}분 후`);
-    } else {
-      setTimeUntilWeeklyReset(`${minutes}분 후`);
-    }
+    // 공통 유틸리티 함수 사용
+    const timeText = formatLongDuration(diff);
+    setTimeUntilWeeklyReset(timeText);
   };
 
   const formatNumber = (num: number): string => {

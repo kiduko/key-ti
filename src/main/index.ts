@@ -13,6 +13,7 @@ import { BackupManager } from './backup-manager.js';
 import { registerIPCHandlers } from './ipc-handlers.js';
 import { getIconPath, getBackupDir } from '../shared/utils.js';
 import { getAllSessions, calculateCurrentSessionReset } from '../services/claude-usage.js';
+import { formatTimeUntilReset } from '../shared/session-utils.js';
 
 // 전역 변수
 let isQuitting = false;
@@ -70,20 +71,12 @@ function updateClaudeSession() {
     console.log('[updateClaudeSession] currentSessionSessions count:', currentSessionSessions.length);
     console.log('[updateClaudeSession] currentSessionCost:', currentSessionCost);
 
-    // 리셋까지 남은 시간 계산
+    // 리셋까지 남은 시간 계산 (공통 유틸리티 사용)
     const diff = resetTime.getTime() - now.getTime();
 
     console.log('[updateClaudeSession] diff (ms):', diff);
 
-    let timeUntilReset: string;
-    if (diff <= 0) {
-      // 리셋 시간이 지났으면 만료됨 표시
-      timeUntilReset = '만료됨';
-    } else {
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      timeUntilReset = `${hours}시간 ${minutes}분 후`;
-    }
+    const timeUntilReset = formatTimeUntilReset(diff);
 
     console.log('[updateClaudeSession] timeUntilReset:', timeUntilReset);
 

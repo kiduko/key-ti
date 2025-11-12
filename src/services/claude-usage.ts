@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { findCurrentSessionChain } from '../shared/session-utils.js';
 
 export interface TokenUsage {
   inputTokens: number;
@@ -532,39 +533,11 @@ export function calculateCurrentSessionReset(sessions: SessionData[]): {
     console.log(`  ${i}: ${s.timestamp}`);
   });
 
-  // 역순으로 세션을 탐색하여 현재 시간과 연결된 세션 체인 찾기
-  let currentChainSessions: SessionData[] = [];
+  // 공통 유틸리티 함수를 사용하여 세션 체인 찾기
+  const currentChainSessions = findCurrentSessionChain(sessions, now);
 
-  for (let i = sessions.length - 1; i >= 0; i--) {
-    const session = sessions[i];
-    const sessionTime = new Date(session.timestamp);
-
-    // 미래 세션은 무시
-    if (sessionTime > now) {
-      continue;
-    }
-
-    if (currentChainSessions.length === 0) {
-      // 첫 세션 추가 (현재 시간 이전의 가장 최근 세션)
-      console.log('[calculateCurrentSessionReset] First session in chain:', session.timestamp);
-      currentChainSessions.unshift(session);
-    } else {
-      // 이전 세션과의 갭 계산
-      const nextSession = currentChainSessions[0];
-      const nextTime = new Date(nextSession.timestamp);
-      const gap = (nextTime.getTime() - sessionTime.getTime()) / (1000 * 60 * 60);
-
-      console.log(`[calculateCurrentSessionReset] Gap between ${session.timestamp} and ${nextSession.timestamp}: ${gap.toFixed(2)} hours`);
-
-      // 5시간 미만 갭이면 체인에 추가
-      if (gap < 5) {
-        currentChainSessions.unshift(session);
-      } else {
-        // 5시간 이상 갭이면 체인 중단
-        console.log('[calculateCurrentSessionReset] Chain break - gap >= 5 hours');
-        break;
-      }
-    }
+  if (currentChainSessions.length > 0) {
+    console.log('[calculateCurrentSessionReset] First session in chain:', currentChainSessions[0].timestamp);
   }
 
   if (currentChainSessions.length === 0) {

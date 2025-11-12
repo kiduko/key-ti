@@ -2,6 +2,7 @@
 import { Tray, Menu, nativeImage, app } from 'electron';
 import { getIconPath } from '../shared/utils.js';
 import { AWSProfile } from '../shared/types.js';
+import { formatTimeUntilResetAbbrev } from '../shared/session-utils.js';
 
 interface ClaudeSessionInfo {
   cost: number;
@@ -122,11 +123,8 @@ export class TrayManager {
 
     // Claude Code 세션 정보를 타이틀에 표시
     if (this.claudeSessionInfo) {
-      // "3시간 14분 후" -> "3h14m"로 축약
-      const timeText = this.claudeSessionInfo.timeUntilReset
-        .replace('시간', 'h')
-        .replace('분 후', 'm')
-        .replace(' ', '');
+      // 공통 유틸리티를 사용하여 시간 텍스트 축약
+      const timeText = formatTimeUntilResetAbbrev(this.claudeSessionInfo.timeUntilReset);
       const titleText = `$${this.claudeSessionInfo.cost.toFixed(2)} | ${timeText}`;
       this.tray.setTitle(titleText);
       this.tray.setToolTip(`Claude Code 세션\n비용: $${this.claudeSessionInfo.cost.toFixed(2)}\n리셋: ${this.claudeSessionInfo.timeUntilReset}`);
