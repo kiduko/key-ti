@@ -505,3 +505,124 @@ export function getUsageStats() {
     totalSessions: sessions.length,
   };
 }
+
+/**
+ * 현재 세션의 리셋 시간 계산
+ * @param sessions 모든 세션 데이터
+ * @returns 리셋 시간과 현재 세션 정보 또는 null
+ */
+export function calculateCurrentSessionReset(sessions: SessionData[]): {
+  resetTime: Date;
+  firstSessionTime: Date;
+  blockStartTime: Date;
+} | null {
+  if (sessions.length === 0) {
+    return null;
+  }
+
+  const now = new Date();
+
+  console.log('[calculateCurrentSessionReset] Total sessions:', sessions.length);
+  console.log('[calculateCurrentSessionReset] Current time:', now.toISOString());
+
+  // 최근 10개 세션 확인
+  const last10 = sessions.slice(-10);
+  console.log('[calculateCurrentSessionReset] Last 10 session timestamps:');
+  last10.forEach((s, i) => {
+    console.log(`  ${i}: ${s.timestamp}`);
+  });
+
+  // 역순으로 세션을 탐색하여 현재 시간과 연결된 세션 체인 찾기
+  let currentChainSessions: SessionData[] = [];
+
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    const session = sessions[i];
+    const sessionTime = new Date(session.timestamp);
+
+    // 미래 세션은 무시
+    if (sessionTime > now) {
+      continue;
+    }
+
+    if (currentChainSessions.length === 0) {
+      // 첫 세션 추가 (현재 시간 이전의 가장 최근 세션)
+      console.log('[calculateCurrentSessionReset] First session in chain:', session.timestamp);
+      currentChainSessions.unshift(session);
+    } else {
+      // 이전 세션과의 갭 계산
+      const nextSession = currentChainSessions[0];
+      const nextTime = new Date(nextSession.timestamp);
+      const gap = (nextTime.getTime() - sessionTime.getTime()) / (1000 * 60 * 60);
+
+      console.log(`[calculateCurrentSessionReset] Gap between ${session.timestamp} and ${nextSession.timestamp}: ${gap.toFixed(2)} hours`);
+
+      // 5시간 미만 갭이면 체인에 추가
+      if (gap < 5) {
+        currentChainSessions.unshift(session);
+      } else {
+        // 5시간 이상 갭이면 체인 중단
+        console.log('[calculateCurrentSessionReset] Chain break - gap >= 5 hours');
+        break;
+      }
+    }
+  }
+
+  if (currentChainSessions.length === 0) {
+    return null;
+  }
+
+  console.log('[calculateCurrentSessionReset] Chain sessions count:', currentChainSessions.length);
+  console.log('[calculateCurrentSessionReset] Chain first session:', currentChainSessions[0].timestamp);
+  console.log('[calculateCurrentSessionReset] Chain last session:', currentChainSessions[currentChainSessions.length - 1].timestamp);
+
+  // 가장 오래된 세션(첫 세션) 시작 시간
+  const firstSessionTime = new Date(currentChainSessions[0].timestamp);
+
+  // 첫 세션의 시작 시간을 시간 단위로 내림 (9:19 → 9:00)
+  const blockStartTime = new Date(firstSessionTime);
+  blockStartTime.setMinutes(0, 0, 0);
+
+  // 블록 시작 시간부터 5시간 후가 리셋 시간 (9:00 → 14:00)
+  const resetTime = new Date(blockStartTime.getTime() + 5 * 60 * 60 * 1000);
+
+  console.log('[calculateCurrentSessionReset] Block start time:', blockStartTime.toISOString());
+  console.log('[calculateCurrentSessionReset] Reset time:', resetTime.toISOString());
+
+  // 리셋 시간이 이미 지났으면, 리셋 이후의 세션들만 다시 필터링
+  if (now > resetTime) {
+    console.log('[calculateCurrentSessionReset] Reset time passed, finding new chain after reset');
+
+    const afterResetSessions = currentChainSessions.filter(s => {
+      const sessionTime = new Date(s.timestamp);
+      return sessionTime > resetTime;
+    });
+
+    console.log('[calculateCurrentSessionReset] Sessions after reset:', afterResetSessions.length);
+
+    if (afterResetSessions.length === 0) {
+      console.log('[calculateCurrentSessionReset] No sessions after reset - session expired');
+      return null;
+    }
+
+    // 리셋 이후 첫 세션으로 블록 재계산
+    const newFirstSessionTime = new Date(afterResetSessions[0].timestamp);
+    const newBlockStartTime = new Date(newFirstSessionTime);
+    newBlockStartTime.setMinutes(0, 0, 0);
+    const newResetTime = new Date(newBlockStartTime.getTime() + 5 * 60 * 60 * 1000);
+
+    console.log('[calculateCurrentSessionReset] New block start:', newBlockStartTime.toISOString());
+    console.log('[calculateCurrentSessionReset] New reset time:', newResetTime.toISOString());
+
+    return {
+      resetTime: newResetTime,
+      firstSessionTime: newFirstSessionTime,
+      blockStartTime: newBlockStartTime,
+    };
+  }
+
+  return {
+    resetTime,
+    firstSessionTime,
+    blockStartTime,
+  };
+}

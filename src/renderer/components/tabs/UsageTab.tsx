@@ -77,7 +77,6 @@ const UsageTab: React.FC = () => {
 
   useEffect(() => {
     loadUsageStats();
-    calculateNextReset();
     calculateNextWeeklyReset();
 
     // 1분마다 리셋 타이머 업데이트
@@ -90,46 +89,48 @@ const UsageTab: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (stats) {
+      calculateNextReset();
+    }
+  }, [stats]);
+
+  useEffect(() => {
     // stats가 변경되면 퍼센트 계산
     if (stats && nextResetTime && nextWeeklyReset) {
       const now = new Date();
-      const resetHours = [0, 5, 10, 15, 20];
 
-      // 최근 5시간 내 세션 찾기
-      const fiveHoursAgo = new Date(now.getTime() - 5 * 60 * 60 * 1000);
-      const recentSessions = stats.sessions.filter(s => {
-        const sessionTime = new Date(s.timestamp);
-        return sessionTime >= fiveHoursAgo && sessionTime <= now;
-      });
+      // 역순으로 세션을 탐색하여 현재 시간과 연결된 세션 체인 찾기
+      let currentChainSessions: typeof stats.sessions = [];
 
-      let currentSessionTokens = 0;
-      let currentSessionSessions: typeof stats.sessions = [];
+      for (let i = stats.sessions.length - 1; i >= 0; i--) {
+        const session = stats.sessions[i];
+        const sessionTime = new Date(session.timestamp);
 
-      if (recentSessions.length > 0) {
-        // 가장 오래된 세션의 시간 찾기
-        const firstSessionTime = new Date(recentSessions[0].timestamp);
-        const firstSessionHourUTC = firstSessionTime.getUTCHours();
+        // 미래 세션은 무시
+        if (sessionTime > now) {
+          continue;
+        }
 
-        // 첫 세션이 속한 5시간 블록 찾기
-        let sessionBlockStart = 0;
-        for (let i = resetHours.length - 1; i >= 0; i--) {
-          if (firstSessionHourUTC >= resetHours[i]) {
-            sessionBlockStart = resetHours[i];
+        if (currentChainSessions.length === 0) {
+          // 첫 세션 추가 (현재 시간 이전의 가장 최근 세션)
+          currentChainSessions.unshift(session);
+        } else {
+          // 이전 세션과의 갭 계산
+          const nextSession = currentChainSessions[0];
+          const nextTime = new Date(nextSession.timestamp);
+          const gap = (nextTime.getTime() - sessionTime.getTime()) / (1000 * 60 * 60);
+
+          // 5시간 미만 갭이면 체인에 추가
+          if (gap < 5) {
+            currentChainSessions.unshift(session);
+          } else {
+            // 5시간 이상 갭이면 체인 중단
             break;
           }
         }
-
-        const sessionStart = new Date(firstSessionTime);
-        sessionStart.setUTCHours(sessionBlockStart, 0, 0, 0);
-
-        // 해당 블록 시작부터 현재까지의 모든 세션
-        currentSessionSessions = stats.sessions.filter(s => {
-          const sessionTime = new Date(s.timestamp);
-          return sessionTime >= sessionStart && sessionTime <= now;
-        });
-
-        currentSessionTokens = currentSessionSessions.reduce((sum, s) => sum + s.totalTokens, 0);
       }
+
+      const currentSessionTokens = currentChainSessions.reduce((sum, s) => sum + s.totalTokens, 0);
 
       const weekStart = new Date(nextWeeklyReset.getTime() - 7 * 24 * 60 * 60 * 1000);
       const weeklySessions = stats.sessions
@@ -141,20 +142,20 @@ const UsageTab: React.FC = () => {
       const weeklyTokens = weeklySessions.reduce((sum, s) => sum + s.totalTokens, 0);
 
       console.log('=== Token Usage Debug ===');
-      console.log('Current session sessions count:', currentSessionSessions.length);
+      console.log('Current session sessions count:', currentChainSessions.length);
       console.log('Current session tokens:', currentSessionTokens);
       console.log('Weekly sessions count:', weeklySessions.length);
       console.log('Weekly tokens:', weeklyTokens);
 
       // 개별 세션 토큰 값들 확인 (88,000의 40%인 35,200 근처 값 찾기)
       console.log('Current session individual tokens:');
-      currentSessionSessions.forEach((s, i) => {
+      currentChainSessions.forEach((s, i) => {
         console.log(`  Session ${i+1}: ${s.totalTokens} (input: ${s.usage.inputTokens}, output: ${s.usage.outputTokens})`);
       });
 
       // 세션당 평균 토큰
-      const avgTokensPerSession = currentSessionSessions.length > 0
-        ? currentSessionTokens / currentSessionSessions.length
+      const avgTokensPerSession = currentChainSessions.length > 0
+        ? currentSessionTokens / currentChainSessions.length
         : 0;
       console.log('Average tokens per session:', avgTokensPerSession);
 
@@ -248,32 +249,20 @@ const UsageTab: React.FC = () => {
     });
   };
 
-  const calculateNextReset = () => {
-    const now = new Date();
-    const currentHourUTC = now.getUTCHours();
+  const calculateNextReset = async () => {
+    if (!stats || stats.sessions.length === 0) {
+      return;
+    }
 
-    // 5시간 주기: 00:00, 05:00, 10:00, 15:00, 20:00 (UTC 기준)
-    const resetHours = [0, 5, 10, 15, 20];
-
-    // 다음 리셋 시간 찾기
-    let nextReset = new Date(now);
-    let foundNextReset = false;
-
-    for (const hour of resetHours) {
-      if (currentHourUTC < hour) {
-        nextReset.setUTCHours(hour, 0, 0, 0);
-        foundNextReset = true;
-        break;
+    try {
+      // IPC를 통해 세션 리셋 시간 계산 (공통 로직 사용)
+      const sessionInfo = await window.electronAPI.calculateSessionReset();
+      if (sessionInfo) {
+        setNextResetTime(new Date(sessionInfo.resetTime));
       }
+    } catch (error) {
+      console.error('Failed to calculate session reset:', error);
     }
-
-    // 오늘 중에 다음 리셋이 없으면 내일 00:00 UTC
-    if (!foundNextReset) {
-      nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-      nextReset.setUTCHours(0, 0, 0, 0);
-    }
-
-    setNextResetTime(nextReset);
   };
 
   const calculateNextWeeklyReset = () => {
@@ -362,7 +351,7 @@ const UsageTab: React.FC = () => {
   };
 
   const formatCost = (cost: number): string => {
-    return `$${cost.toFixed(3)}`;
+    return `$${cost.toFixed(2)}`;
   };
 
   const formatDate = (dateStr: string): string => {
@@ -507,13 +496,21 @@ const UsageTab: React.FC = () => {
 
                   const isExpanded = expandedDates.has(date);
 
+                  // 오늘 날짜인지 확인
+                  const today = new Date();
+                  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                  const isToday = date === todayStr;
+
                   // 날짜별 합계 행 (클릭 가능)
                   rows.push(
                     <tr
                       key={`${date}-total`}
                       className="date-total-row clickable"
                       onClick={() => toggleDateExpanded(date)}
-                      style={{ cursor: 'pointer' }}
+                      style={{
+                        cursor: 'pointer',
+                        backgroundColor: isToday ? '#fff9c4' : undefined
+                      }}
                     >
                       <td colSpan={2}>
                         <strong>
@@ -562,8 +559,19 @@ const UsageTab: React.FC = () => {
                         });
                         console.log('Block tooltip:', block.blockLabel, '→', firstSessionFormatted);
 
+                        // 현재 활성 세션인지 확인
+                        const now = new Date();
+                        const blockStart = new Date(firstSessionDate);
+                        blockStart.setMinutes(0, 0, 0);
+                        const blockEnd = new Date(blockStart.getTime() + 5 * 60 * 60 * 1000);
+                        const isActiveSession = now >= blockStart && now < blockEnd;
+
                         rows.push(
-                          <tr key={`${date}-block-${block.blockStart}-${idx}`} className="model-detail-row">
+                          <tr
+                            key={`${date}-block-${block.blockStart}-${idx}`}
+                            className="model-detail-row"
+                            style={isActiveSession ? { backgroundColor: '#e8f5e9' } : undefined}
+                          >
                             <td></td>
                             <td className="model-id">
                               <span title={`최초 시작: ${firstSessionFormatted}`}>

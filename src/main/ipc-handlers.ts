@@ -18,7 +18,8 @@ export function registerIPCHandlers(
   windowManager: WindowManager,
   autoRenewalManager: AutoRenewalManager,
   backupManager: BackupManager,
-  onTrayUpdate: () => void
+  onTrayUpdate: () => void,
+  onClaudeSessionUpdate?: () => void
 ) {
   // 앱 버전
   ipcMain.handle('get-app-version', async () => {
@@ -303,6 +304,20 @@ export function registerIPCHandlers(
     return { success: true };
   });
 
+  // Claude 사용량 타이틀 표시 설정
+  ipcMain.handle('get-show-claude-usage-in-title', async () => {
+    return configManager.getShowClaudeUsageInTitle();
+  });
+
+  ipcMain.handle('set-show-claude-usage-in-title', async (event, enabled: boolean) => {
+    configManager.setShowClaudeUsageInTitle(enabled);
+    // 설정 변경 시 즉시 타이틀 업데이트
+    if (onClaudeSessionUpdate) {
+      onClaudeSessionUpdate();
+    }
+    return { success: true };
+  });
+
   // OTP 관리
   ipcMain.handle('get-otp-accounts', async () => {
     return configManager.getOTPAccounts();
@@ -399,6 +414,28 @@ export function registerIPCHandlers(
     } catch (error) {
       console.error('Failed to get Claude session blocks:', error);
       return [];
+    }
+  });
+
+  // 세션 리셋 시간 계산
+  ipcMain.handle('calculate-session-reset', async () => {
+    try {
+      const sessions = claudeUsage.getAllSessions();
+      const sessionInfo = claudeUsage.calculateCurrentSessionReset(sessions);
+
+      if (!sessionInfo) {
+        return null;
+      }
+
+      // Date 객체를 ISO 문자열로 변환하여 전송
+      return {
+        resetTime: sessionInfo.resetTime.toISOString(),
+        firstSessionTime: sessionInfo.firstSessionTime.toISOString(),
+        blockStartTime: sessionInfo.blockStartTime.toISOString(),
+      };
+    } catch (error) {
+      console.error('Failed to calculate session reset:', error);
+      return null;
     }
   });
 

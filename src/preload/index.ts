@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAutoBackupSettings: () => ipcRenderer.invoke('get-auto-backup-settings'),
   getAutoRefreshSettings: () => ipcRenderer.invoke('get-auto-refresh-settings'),
   setAutoRefreshSettings: (settings: any) => ipcRenderer.invoke('set-auto-refresh-settings', settings),
+  getShowClaudeUsageInTitle: () => ipcRenderer.invoke('get-show-claude-usage-in-title'),
+  setShowClaudeUsageInTitle: (enabled: boolean) => ipcRenderer.invoke('set-show-claude-usage-in-title', enabled),
   onUpdateAvailable: (callback: (version: string) => void) => {
     ipcRenderer.on('update-available', (_, version) => callback(version));
   },
@@ -37,6 +39,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Claude Usage API
   getClaudeUsageStats: () => ipcRenderer.invoke('get-claude-usage-stats'),
   getClaudeSessionBlocks: (date: string) => ipcRenderer.invoke('get-claude-session-blocks', date),
+  calculateSessionReset: () => ipcRenderer.invoke('calculate-session-reset'),
   // External link
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url)
 });

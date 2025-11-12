@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import AutoRefreshSettings from '../settings/AutoRefreshSettings.js';
 import BackupSettings from '../settings/BackupSettings.js';
 import ImportExportSettings from '../settings/ImportExportSettings.js';
+import DisplaySettings from '../settings/DisplaySettings.js';
 
-type SettingsSubTab = 'autoRefresh' | 'backup' | 'importExport';
+type SettingsSubTab = 'display' | 'autoRefresh' | 'backup' | 'importExport';
 
 const SettingsTab: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>('autoRefresh');
@@ -11,6 +12,12 @@ const SettingsTab: React.FC = () => {
   return (
     <div style={{ display: 'flex', height: '100%', padding: 0 }}>
       <div style={{ width: '140px', borderRight: '1px solid #e0e0e0', padding: '12px 0', background: '#f9f9f9' }}>
+        <button
+          className={`settings-subtab ${activeSubTab === 'display' ? 'active' : ''}`}
+          onClick={() => setActiveSubTab('display')}
+        >
+          디스플레이
+        </button>
         <button
           className={`settings-subtab ${activeSubTab === 'autoRefresh' ? 'active' : ''}`}
           onClick={() => setActiveSubTab('autoRefresh')}
@@ -32,6 +39,7 @@ const SettingsTab: React.FC = () => {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+        {activeSubTab === 'display' && <DisplaySettings />}
         {activeSubTab === 'autoRefresh' && <AutoRefreshSettings />}
         {activeSubTab === 'backup' && <BackupSettings />}
         {activeSubTab === 'importExport' && <ImportExportSettings />}

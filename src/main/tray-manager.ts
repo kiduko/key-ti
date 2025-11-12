@@ -57,7 +57,7 @@ export class TrayManager {
         enabled: false
       });
       menuItems.push({
-        label: `  비용: $${this.claudeSessionInfo.cost.toFixed(3)}`,
+        label: `  비용: $${this.claudeSessionInfo.cost.toFixed(2)}`,
         enabled: false
       });
       menuItems.push({
@@ -129,7 +129,7 @@ export class TrayManager {
         .replace(' ', '');
       const titleText = `$${this.claudeSessionInfo.cost.toFixed(2)} | ${timeText}`;
       this.tray.setTitle(titleText);
-      this.tray.setToolTip(`Claude Code 세션\n비용: $${this.claudeSessionInfo.cost.toFixed(3)}\n리셋: ${this.claudeSessionInfo.timeUntilReset}`);
+      this.tray.setToolTip(`Claude Code 세션\n비용: $${this.claudeSessionInfo.cost.toFixed(2)}\n리셋: ${this.claudeSessionInfo.timeUntilReset}`);
     } else {
       this.tray.setTitle('');
       this.tray.setToolTip('Key-ti');

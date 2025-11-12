@@ -132,6 +132,16 @@ export class ConfigManager {
     this.saveConfig();
   }
 
+  // Claude 사용량 타이틀 표시 설정
+  getShowClaudeUsageInTitle(): boolean {
+    return this.config.showClaudeUsageInTitle ?? false;
+  }
+
+  setShowClaudeUsageInTitle(enabled: boolean): void {
+    this.config.showClaudeUsageInTitle = enabled;
+    this.saveConfig();
+  }
+
   // OTP 계정 관리
   getOTPAccounts(): OTPAccount[] {
     return this.config.otpAccounts || [];

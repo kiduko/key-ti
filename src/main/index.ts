@@ -12,7 +12,7 @@ import { AutoRenewalManager } from './auto-renewal-manager.js';
 import { BackupManager } from './backup-manager.js';
 import { registerIPCHandlers } from './ipc-handlers.js';
 import { getIconPath, getBackupDir } from '../shared/utils.js';
-import { getAllSessions } from '../services/claude-usage.js';
+import { getAllSessions, calculateCurrentSessionReset } from '../services/claude-usage.js';
 
 // 전역 변수
 let isQuitting = false;
@@ -33,62 +33,75 @@ let backupManager: BackupManager;
 function updateClaudeSession() {
   try {
     const sessions = getAllSessions();
-    if (sessions.length === 0) {
+    const sessionInfo = calculateCurrentSessionReset(sessions);
+
+    console.log('[updateClaudeSession] sessionInfo:', sessionInfo);
+
+    if (!sessionInfo) {
+      // 세션 정보가 없으면 기본값으로 초기화
+      trayManager.updateClaudeSession(0, '세션 없음');
+
+      const mainWindow = windowManager.getMainWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (configManager.getShowClaudeUsageInTitle()) {
+          mainWindow.setTitle('Key-ti - 세션 없음');
+        } else {
+          mainWindow.setTitle('Key-ti');
+        }
+      }
       return;
     }
 
     const now = new Date();
-    const currentHourUTC = now.getUTCHours();
-    const resetHours = [0, 5, 10, 15, 20];
+    const { resetTime, firstSessionTime } = sessionInfo;
 
-    // 현재 시간이 속한 5시간 블록의 시작 시간 찾기
-    let currentBlockStart = 0;
-    for (let i = resetHours.length - 1; i >= 0; i--) {
-      if (currentHourUTC >= resetHours[i]) {
-        currentBlockStart = resetHours[i];
-        break;
-      }
-    }
+    console.log('[updateClaudeSession] now:', now.toISOString());
+    console.log('[updateClaudeSession] resetTime:', resetTime.toISOString());
+    console.log('[updateClaudeSession] firstSessionTime:', firstSessionTime.toISOString());
 
-    // 현재 블록의 시작 시간
-    const blockStartTime = new Date(now);
-    blockStartTime.setUTCHours(currentBlockStart, 0, 0, 0);
-
-    // 현재 블록 내의 모든 세션
+    // 첫 세션부터 현재까지의 모든 세션 비용 계산
     const currentSessionSessions = sessions.filter(s => {
       const sessionTime = new Date(s.timestamp);
-      return sessionTime >= blockStartTime && sessionTime <= now;
+      return sessionTime >= firstSessionTime && sessionTime <= now;
     });
-
-    if (currentSessionSessions.length === 0) {
-      return;
-    }
 
     const currentSessionCost = currentSessionSessions.reduce((sum, s) => sum + s.cost, 0);
 
-    // 다음 리셋 시간 계산
-    let nextReset = new Date(now);
-    let foundNextReset = false;
+    console.log('[updateClaudeSession] currentSessionSessions count:', currentSessionSessions.length);
+    console.log('[updateClaudeSession] currentSessionCost:', currentSessionCost);
 
-    for (const hour of resetHours) {
-      if (currentHourUTC < hour) {
-        nextReset.setUTCHours(hour, 0, 0, 0);
-        foundNextReset = true;
-        break;
-      }
+    // 리셋까지 남은 시간 계산
+    const diff = resetTime.getTime() - now.getTime();
+
+    console.log('[updateClaudeSession] diff (ms):', diff);
+
+    let timeUntilReset: string;
+    if (diff <= 0) {
+      // 리셋 시간이 지났으면 만료됨 표시
+      timeUntilReset = '만료됨';
+    } else {
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      timeUntilReset = `${hours}시간 ${minutes}분 후`;
     }
 
-    if (!foundNextReset) {
-      nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-      nextReset.setUTCHours(0, 0, 0, 0);
-    }
-
-    const diff = nextReset.getTime() - now.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const timeUntilReset = `${hours}시간 ${minutes}분 후`;
+    console.log('[updateClaudeSession] timeUntilReset:', timeUntilReset);
 
     trayManager.updateClaudeSession(currentSessionCost, timeUntilReset);
+
+    // 타이틀에 표시 (설정이 활성화된 경우)
+    const mainWindow = windowManager.getMainWindow();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const showInTitle = configManager.getShowClaudeUsageInTitle();
+      console.log('[updateClaudeSession] showInTitle:', showInTitle);
+      if (showInTitle) {
+        const title = `Key-ti - $${currentSessionCost.toFixed(2)} - ${timeUntilReset}`;
+        console.log('[updateClaudeSession] Setting title:', title);
+        mainWindow.setTitle(title);
+      } else {
+        mainWindow.setTitle('Key-ti');
+      }
+    }
   } catch (error) {
     console.error('Error updating Claude session:', error);
   }
@@ -272,7 +285,10 @@ app.whenReady().then(() => {
   updateTray();
 
   // Claude Code 세션 정보 업데이트 (초기 + 1분마다)
-  updateClaudeSession();
+  // 윈도우가 완전히 로드될 때까지 대기
+  setTimeout(() => {
+    updateClaudeSession();
+  }, 1000);
   setInterval(updateClaudeSession, 60 * 1000);
 
   // IPC 핸들러 등록
@@ -283,7 +299,8 @@ app.whenReady().then(() => {
     windowManager,
     autoRenewalManager,
     backupManager,
-    updateTray
+    updateTray,
+    updateClaudeSession
   );
 
   // 자동 업데이트 설정

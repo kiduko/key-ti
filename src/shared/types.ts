@@ -40,6 +40,7 @@ export interface ConfigData {
   activeProfiles?: string[];
   autoRefresh?: AutoRefreshSettings;
   otpAccounts?: OTPAccount[];
+  showClaudeUsageInTitle?: boolean;
 }
 
 export interface MemoFile {

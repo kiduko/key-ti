@@ -65,6 +65,8 @@ export interface ElectronAPI {
   getAutoBackupSettings: () => Promise<{ enabled: boolean; type: string }>;
   getAutoRefreshSettings: () => Promise<AutoRefreshSettings>;
   setAutoRefreshSettings: (settings: AutoRefreshSettings) => Promise<{ success: boolean }>;
+  getShowClaudeUsageInTitle: () => Promise<boolean>;
+  setShowClaudeUsageInTitle: (enabled: boolean) => Promise<{ success: boolean }>;
   onUpdateAvailable: (callback: (version: string) => void) => void;
   getOTPAccounts: () => Promise<OTPAccount[]>;
   addOTPAccount: (account: OTPAccount) => Promise<{ success: boolean }>;
@@ -136,6 +138,11 @@ export interface ElectronAPI {
     chainLength: number;
     firstSessionTime: string;
   }>>;
+  calculateSessionReset: () => Promise<{
+    resetTime: string;
+    firstSessionTime: string;
+    blockStartTime: string;
+  } | null>;
   openExternal: (url: string) => Promise<void>;
 }
 
