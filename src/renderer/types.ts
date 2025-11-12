@@ -122,6 +122,21 @@ export interface ElectronAPI {
     }>;
     totalSessions: number;
   }>;
+  getClaudeSessionBlocks: (date: string) => Promise<Array<{
+    date: string;
+    blockStart: number;
+    blockLabel: string;
+    sessions: any[];
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalCacheCreationTokens: number;
+    totalCacheReadTokens: number;
+    totalTokens: number;
+    totalCost: number;
+    chainLength: number;
+    firstSessionTime: string;
+  }>>;
+  openExternal: (url: string) => Promise<void>;
 }
 
 declare global {

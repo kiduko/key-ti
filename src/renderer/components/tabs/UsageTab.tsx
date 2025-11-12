@@ -67,6 +67,7 @@ const UsageTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const [dateSessionBlocks, setDateSessionBlocks] = useState<Map<string, any[]>>(new Map());
   const [nextResetTime, setNextResetTime] = useState<Date | null>(null);
   const [timeUntilReset, setTimeUntilReset] = useState<string>('');
   const [nextWeeklyReset, setNextWeeklyReset] = useState<Date | null>(null);
@@ -210,16 +211,29 @@ const UsageTab: React.FC = () => {
     }
   };
 
-  const toggleDateExpanded = (date: string) => {
+  const toggleDateExpanded = async (date: string) => {
     setExpandedDates(prev => {
       const next = new Set(prev);
       if (next.has(date)) {
         next.delete(date);
       } else {
         next.add(date);
+        // 세션 블록 데이터 로드
+        if (!dateSessionBlocks.has(date)) {
+          loadSessionBlocks(date);
+        }
       }
       return next;
     });
+  };
+
+  const loadSessionBlocks = async (date: string) => {
+    try {
+      const blocks = await window.electronAPI.getClaudeSessionBlocks(date);
+      setDateSessionBlocks(prev => new Map(prev).set(date, blocks));
+    } catch (error) {
+      console.error('Failed to load session blocks:', error);
+    }
   };
 
   const toggleMonthExpanded = (month: string) => {
@@ -373,7 +387,7 @@ const UsageTab: React.FC = () => {
   if (loading) {
     return (
       <div className="tab-content active">
-        <PageHeader title="Claude 사용량 분석" />
+        <PageHeader title="Claude Code 사용량" />
         <div className="loading-message">데이터를 불러오는 중...</div>
       </div>
     );
@@ -394,6 +408,19 @@ const UsageTab: React.FC = () => {
   return (
     <div className="tab-content active">
       <PageHeader title="Claude Code 사용량" />
+      <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f5f5f5', borderRadius: '4px', fontSize: '13px', color: '#666' }}>
+        로컬 세션에 저장된 데이터로, 실제 사용량과는 차이가 있을 수 있습니다.{' '}
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            window.electronAPI.openExternal('https://claude.ai/settings/usage');
+          }}
+          style={{ color: '#0066cc', textDecoration: 'none', cursor: 'pointer' }}
+        >
+          실제 사용량 확인
+        </a>
+      </div>
 
       <div className="usage-controls">
         <button
@@ -504,23 +531,65 @@ const UsageTab: React.FC = () => {
                     </tr>
                   );
 
-                  // 확장된 경우에만 모델별 상세 데이터 표시
+                  // 확장된 경우에만 5시간 블록별 상세 데이터 표시
                   if (isExpanded) {
-                    dailies.forEach((daily, idx) => {
+                    const blocks = dateSessionBlocks.get(date) || [];
+                    if (blocks.length > 0) {
+                      // 가장 비용이 많이 든 블록 찾기
+                      const maxCostBlock = blocks.reduce((max, block) =>
+                        block.totalCost > max.totalCost ? block : max
+                      , blocks[0]);
+
+                      blocks.forEach((block, idx) => {
+                        // 체인 길이가 2개 이상이면 체인으로 표시
+                        const isChained = block.chainLength > 1;
+                        // 가장 비용이 많이 든 블록인지 확인
+                        const isHottest = block === maxCostBlock && blocks.length > 1;
+
+                        // 체인 아이콘
+                        const chainIcon = isChained ? '⛓️ ' : '';
+
+                        // 첫 세션 시간 포맷팅
+                        const firstSessionDate = new Date(block.firstSessionTime);
+                        const firstSessionFormatted = firstSessionDate.toLocaleString('ko-KR', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: false
+                        });
+                        console.log('Block tooltip:', block.blockLabel, '→', firstSessionFormatted);
+
+                        rows.push(
+                          <tr key={`${date}-block-${block.blockStart}-${idx}`} className="model-detail-row">
+                            <td></td>
+                            <td className="model-id">
+                              <span title={`최초 시작: ${firstSessionFormatted}`}>
+                                {chainIcon}{block.blockLabel}
+                              </span>
+                            </td>
+                            <td>{block.sessions.length}</td>
+                            <td>{formatNumber(block.totalInputTokens)}</td>
+                            <td>{formatNumber(block.totalOutputTokens)}</td>
+                            <td>{formatNumber(block.totalCacheCreationTokens)}</td>
+                            <td>{formatNumber(block.totalCacheReadTokens)}</td>
+                            <td>{formatNumber(block.totalTokens)}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              {isHottest && '🔥 '}
+                              {formatCost(block.totalCost)}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    } else {
                       rows.push(
-                        <tr key={`${daily.date}-${daily.modelId}-${idx}`} className="model-detail-row">
-                          <td></td>
-                          <td className="model-id">{daily.modelId}</td>
-                          <td>{daily.sessions.length}</td>
-                          <td>{formatNumber(daily.totalInputTokens)}</td>
-                          <td>{formatNumber(daily.totalOutputTokens)}</td>
-                          <td>{formatNumber(daily.totalCacheCreationTokens)}</td>
-                          <td>{formatNumber(daily.totalCacheReadTokens)}</td>
-                          <td>{formatNumber(daily.totalTokens)}</td>
-                          <td style={{ textAlign: 'right' }}>{formatCost(daily.totalCost)}</td>
+                        <tr key={`${date}-loading`} className="model-detail-row">
+                          <td colSpan={9} style={{ textAlign: 'center' }}>로딩 중...</td>
                         </tr>
                       );
-                    });
+                    }
                   }
                 });
 

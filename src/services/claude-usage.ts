@@ -312,6 +312,123 @@ export function getDailyUsage(sessions: SessionData[]): DailyUsage[] {
   });
 }
 
+export interface SessionBlockUsage {
+  date: string;
+  blockStart: number; // UTC 시간 (0, 5, 10, 15, 20)
+  blockLabel: string; // 예: "00:00-05:00"
+  sessions: SessionData[];
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheCreationTokens: number;
+  totalCacheReadTokens: number;
+  totalTokens: number;
+  totalCost: number;
+  chainLength: number; // 이 블록이 속한 체인의 전체 블록 개수
+  firstSessionTime: string; // 이 블록의 첫 세션 시작 시간
+}
+
+export function getSessionBlockUsage(date: string, sessions: SessionData[]): SessionBlockUsage[] {
+  // 해당 날짜의 세션만 필터링하고 시간순 정렬
+  const dateSessions = sessions.filter(s => {
+    const d = new Date(s.timestamp);
+    const sessionDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return sessionDate === date;
+  }).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  if (dateSessions.length === 0) {
+    return [];
+  }
+
+  const blockUsages: SessionBlockUsage[] = [];
+  const processedSessions = new Set<SessionData>();
+
+  let i = 0;
+  while (i < dateSessions.length) {
+    if (processedSessions.has(dateSessions[i])) {
+      i++;
+      continue;
+    }
+
+    // 새로운 블록 체인 시작 - 첫 세션의 시간을 기준으로
+    const chainStartSession = dateSessions[i];
+    const chainStartTime = new Date(chainStartSession.timestamp);
+    const chainStartHour = chainStartTime.getHours();
+
+    // 이 체인의 블록들을 시간대별로 그룹화
+    const chainBlocksMap = new Map<number, SessionData[]>();
+
+    // 현재 세션부터 시작해서 연속된 세션들을 처리
+    for (let j = i; j < dateSessions.length; j++) {
+      if (processedSessions.has(dateSessions[j])) continue;
+
+      const session = dateSessions[j];
+      const sessionTime = new Date(session.timestamp);
+      const sessionHour = sessionTime.getHours();
+
+      // 이 세션이 현재 체인에 속하는지 확인 (5시간 갭 체크)
+      if (j > i) {
+        const prevSession = dateSessions[j - 1];
+        const prevTime = new Date(prevSession.timestamp);
+        const gap = (sessionTime.getTime() - prevTime.getTime()) / (1000 * 60 * 60); // 시간 단위
+
+        // 5시간 이상 갭이 있으면 이 체인 종료
+        if (gap >= 5) {
+          break;
+        }
+      }
+
+      // 이 세션이 속한 블록의 시작 시간 계산
+      let blockStartHour = chainStartHour;
+      while (blockStartHour + 5 <= sessionHour) {
+        blockStartHour += 5;
+      }
+
+      // 24시간 넘어가는 경우 처리
+      if (blockStartHour >= 24) {
+        blockStartHour -= 24;
+      }
+
+      if (!chainBlocksMap.has(blockStartHour)) {
+        chainBlocksMap.set(blockStartHour, []);
+      }
+      chainBlocksMap.get(blockStartHour)!.push(session);
+      processedSessions.add(session);
+    }
+
+    // 이 체인의 블록들을 결과에 추가
+    const chainLength = chainBlocksMap.size; // 이 체인의 전체 블록 개수
+    for (const [blockStartHour, blockSessions] of chainBlocksMap.entries()) {
+      if (blockSessions.length === 0) continue;
+
+      const blockStartTime = new Date(chainStartTime);
+      blockStartTime.setHours(blockStartHour, 0, 0, 0);
+
+      const blockEndTime = new Date(blockStartTime);
+      blockEndTime.setHours(blockStartHour + 5, 0, 0, 0);
+
+      const blockLabel = `${blockStartTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })} - ${blockEndTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+      const totals = calculateTotals(blockSessions);
+
+      // 이 블록의 첫 세션 시간 (시간순 정렬되어 있음)
+      const firstSessionTime = blockSessions[0].timestamp;
+
+      blockUsages.push({
+        date,
+        blockStart: blockStartHour,
+        blockLabel,
+        sessions: blockSessions,
+        ...totals,
+        chainLength, // 체인 길이 추가
+        firstSessionTime, // 첫 세션 시간 추가
+      });
+    }
+
+    i++;
+  }
+
+  return blockUsages.sort((a, b) => a.blockStart - b.blockStart);
+}
+
 export function getMonthlyUsage(dailyUsages: DailyUsage[]): MonthlyUsage[] {
   const monthlyModelMap = new Map<string, DailyUsage[]>(); // key: "month|modelId"
 

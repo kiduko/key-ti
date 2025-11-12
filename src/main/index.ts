@@ -12,6 +12,7 @@ import { AutoRenewalManager } from './auto-renewal-manager.js';
 import { BackupManager } from './backup-manager.js';
 import { registerIPCHandlers } from './ipc-handlers.js';
 import { getIconPath, getBackupDir } from '../shared/utils.js';
+import { getAllSessions } from '../services/claude-usage.js';
 
 // 전역 변수
 let isQuitting = false;
@@ -25,6 +26,73 @@ let windowManager: WindowManager;
 let trayManager: TrayManager;
 let autoRenewalManager: AutoRenewalManager;
 let backupManager: BackupManager;
+
+/**
+ * Claude Code 세션 정보 업데이트
+ */
+function updateClaudeSession() {
+  try {
+    const sessions = getAllSessions();
+    if (sessions.length === 0) {
+      return;
+    }
+
+    const now = new Date();
+    const currentHourUTC = now.getUTCHours();
+    const resetHours = [0, 5, 10, 15, 20];
+
+    // 현재 시간이 속한 5시간 블록의 시작 시간 찾기
+    let currentBlockStart = 0;
+    for (let i = resetHours.length - 1; i >= 0; i--) {
+      if (currentHourUTC >= resetHours[i]) {
+        currentBlockStart = resetHours[i];
+        break;
+      }
+    }
+
+    // 현재 블록의 시작 시간
+    const blockStartTime = new Date(now);
+    blockStartTime.setUTCHours(currentBlockStart, 0, 0, 0);
+
+    // 현재 블록 내의 모든 세션
+    const currentSessionSessions = sessions.filter(s => {
+      const sessionTime = new Date(s.timestamp);
+      return sessionTime >= blockStartTime && sessionTime <= now;
+    });
+
+    if (currentSessionSessions.length === 0) {
+      return;
+    }
+
+    const currentSessionCost = currentSessionSessions.reduce((sum, s) => sum + s.cost, 0);
+
+    // 다음 리셋 시간 계산
+    let nextReset = new Date(now);
+    let foundNextReset = false;
+
+    for (const hour of resetHours) {
+      if (currentHourUTC < hour) {
+        nextReset.setUTCHours(hour, 0, 0, 0);
+        foundNextReset = true;
+        break;
+      }
+    }
+
+    if (!foundNextReset) {
+      nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+      nextReset.setUTCHours(0, 0, 0, 0);
+    }
+
+    const diff = nextReset.getTime() - now.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const timeUntilReset = `${hours}시간 ${minutes}분 후`;
+
+    trayManager.updateClaudeSession(currentSessionCost, timeUntilReset);
+  } catch (error) {
+    console.error('Error updating Claude session:', error);
+  }
+}
 
 /**
  * Tray 업데이트 헬퍼
@@ -202,6 +270,10 @@ app.whenReady().then(() => {
   trayManager.create();
   createWindow();
   updateTray();
+
+  // Claude Code 세션 정보 업데이트 (초기 + 1분마다)
+  updateClaudeSession();
+  setInterval(updateClaudeSession, 60 * 1000);
 
   // IPC 핸들러 등록
   registerIPCHandlers(

@@ -3,10 +3,16 @@ import { Tray, Menu, nativeImage, app } from 'electron';
 import { getIconPath } from '../shared/utils.js';
 import { AWSProfile } from '../shared/types.js';
 
+interface ClaudeSessionInfo {
+  cost: number;
+  timeUntilReset: string;
+}
+
 export class TrayManager {
   private tray: Tray | null = null;
   private onShowWindow: () => void;
   private onQuit: () => void;
+  private claudeSessionInfo: ClaudeSessionInfo | null = null;
 
   constructor(onShowWindow: () => void, onQuit: () => void) {
     this.onShowWindow = onShowWindow;
@@ -29,21 +35,42 @@ export class TrayManager {
     return this.tray;
   }
 
+  updateClaudeSession(cost: number, timeUntilReset: string): void {
+    this.claudeSessionInfo = { cost, timeUntilReset };
+    this.updateTrayDisplay();
+  }
+
   update(activeProfiles: string[], profiles: AWSProfile[]): void {
     if (!this.tray) return;
 
-    // Dock 아이콘 업데이트
+    // Dock 아이콘 업데이트 (AWS 세션 수)
     this.updateDockIcon(activeProfiles);
 
-    const titleText = `${activeProfiles.length}`;
-    this.tray.setTitle(titleText);
-    this.tray.setToolTip(`Key-ti - ${activeProfiles.length}개 활성 세션`);
+    this.updateTrayDisplay();
 
     const menuItems: any[] = [];
 
+    // Claude Code 세션 정보 표시
+    if (this.claudeSessionInfo) {
+      menuItems.push({
+        label: `Claude Code 세션`,
+        enabled: false
+      });
+      menuItems.push({
+        label: `  비용: $${this.claudeSessionInfo.cost.toFixed(3)}`,
+        enabled: false
+      });
+      menuItems.push({
+        label: `  리셋: ${this.claudeSessionInfo.timeUntilReset}`,
+        enabled: false
+      });
+      menuItems.push({ type: 'separator' });
+    }
+
+    // AWS 활성 세션 표시
     if (activeProfiles.length > 0) {
       menuItems.push({
-        label: `활성 세션 (${activeProfiles.length}개)`,
+        label: `AWS 활성 세션 (${activeProfiles.length}개)`,
         enabled: false
       });
 
@@ -87,6 +114,25 @@ export class TrayManager {
     if (this.tray && !this.tray.isDestroyed()) {
       this.tray.destroy();
       this.tray = null;
+    }
+  }
+
+  private updateTrayDisplay(): void {
+    if (!this.tray) return;
+
+    // Claude Code 세션 정보를 타이틀에 표시
+    if (this.claudeSessionInfo) {
+      // "3시간 14분 후" -> "3h14m"로 축약
+      const timeText = this.claudeSessionInfo.timeUntilReset
+        .replace('시간', 'h')
+        .replace('분 후', 'm')
+        .replace(' ', '');
+      const titleText = `$${this.claudeSessionInfo.cost.toFixed(2)} | ${timeText}`;
+      this.tray.setTitle(titleText);
+      this.tray.setToolTip(`Claude Code 세션\n비용: $${this.claudeSessionInfo.cost.toFixed(3)}\n리셋: ${this.claudeSessionInfo.timeUntilReset}`);
+    } else {
+      this.tray.setTitle('');
+      this.tray.setToolTip('Key-ti');
     }
   }
 

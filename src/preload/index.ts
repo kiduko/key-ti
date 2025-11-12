@@ -35,5 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportToText: () => ipcRenderer.invoke('export-to-text'),
   importFromText: (text: string) => ipcRenderer.invoke('import-from-text', text),
   // Claude Usage API
-  getClaudeUsageStats: () => ipcRenderer.invoke('get-claude-usage-stats')
+  getClaudeUsageStats: () => ipcRenderer.invoke('get-claude-usage-stats'),
+  getClaudeSessionBlocks: (date: string) => ipcRenderer.invoke('get-claude-session-blocks', date),
+  // External link
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url)
 });

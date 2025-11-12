@@ -390,4 +390,25 @@ export function registerIPCHandlers(
       };
     }
   });
+
+  // Claude Code 일별 5시간 블록 사용량
+  ipcMain.handle('get-claude-session-blocks', async (event, date: string) => {
+    try {
+      const sessions = claudeUsage.getAllSessions();
+      return claudeUsage.getSessionBlockUsage(date, sessions);
+    } catch (error) {
+      console.error('Failed to get Claude session blocks:', error);
+      return [];
+    }
+  });
+
+  // 외부 브라우저로 URL 열기
+  ipcMain.handle('open-external', async (event, url: string) => {
+    try {
+      await shell.openExternal(url);
+    } catch (error) {
+      console.error('Failed to open external URL:', error);
+      throw error;
+    }
+  });
 }
